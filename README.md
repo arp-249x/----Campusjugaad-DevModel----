@@ -1,11 +1,8 @@
+# CampusJugaad
 
-  # CampusJugaad
+CampusJugaad is a platform designed to help students delegate tasks and find help within their campus community.
 
-  This is a code bundle for CampusJugaad. The original project is available at https://www.figma.com/design/XIlGF2o6quR3exzZNfsHk7/CampusJugaad.
+## Running the code
 
-  ## Running the code
-
-  Run `npm i` to install the dependencies.
-
-  Run `npm run dev` to start the development server.
-  
+1. Run `npm install` to install the dependencies.
+2. Run `npm run dev` to start the development server.
