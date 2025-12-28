@@ -143,10 +143,19 @@ function AppContent() {
   };
 
   useEffect(() => {
-    fetchQuests();
-    const interval = setInterval(fetchQuests, 5000); // Poll for new quests
-    return () => clearInterval(interval);
-  }, [currentUser]);
+  if (currentUser) {
+      fetchCurrentUser();
+      fetchTransactions();
+      fetchQuests(); // <--- CALL IT HERE TO ENSURE USERNAME IS READY
+      
+      const interval = setInterval(() => {
+          fetchCurrentUser();
+          fetchTransactions();
+          fetchQuests();
+      }, 5000);
+      return () => clearInterval(interval);
+  }
+}, [currentUser?.username]);
 
 
  // --- 3. CHAT POLLING (Real Mode) ---
