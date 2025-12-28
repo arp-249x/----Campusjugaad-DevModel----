@@ -10,8 +10,21 @@ const router = express.Router();
 // Used by Dashboard (shows active/completed) and Feed (filtered on frontend)
 router.get('/', async (req: Request, res: Response) => {
   try {
+    // Get the username of the person asking (passed from frontend)
+    const currentUsername = req.query.username as string;
+
     const quests = await Quest.find({ status: { $ne: 'expired' } }).sort({ createdAt: -1 });
-    res.json(quests);
+    
+    // SANITIZE: Only show OTP if the user is the POSTER
+    const sanitizedQuests = quests.map(q => {
+      const quest = q.toObject();
+      if (quest.postedBy !== currentUsername) {
+        delete quest.otp; // <--- NUKE THE OTP FOR EVERYONE ELSE
+      }
+      return quest;
+    });
+
+    res.json(sanitizedQuests);
   } catch (error) {
     res.status(500).json({ message: "Error fetching quests" });
   }
@@ -228,5 +241,6 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
     res.status(500).json({ message: "Error fetching messages" });
   }
 });
+
 
 export default router;
