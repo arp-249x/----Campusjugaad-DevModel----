@@ -1,6 +1,6 @@
 import { Flame } from "lucide-react";
 
-type UrgencyLevel = "low" | "medium" | "high";
+type UrgencyLevel = "low" | "medium" | "urgent";
 
 interface UrgencySelectorProps {
   value: UrgencyLevel;
@@ -11,7 +11,7 @@ export function UrgencySelector({ value, onChange }: UrgencySelectorProps) {
   const options: { level: UrgencyLevel; label: string; flames: number }[] = [
     { level: "low", label: "LOW", flames: 1 },
     { level: "medium", label: "MEDIUM", flames: 2 },
-    { level: "high", label: "HIGH", flames: 3 },
+    { level: "urgent", label: "URGENT", flames: 3 },
   ];
 
   const getColors = (level: UrgencyLevel) => {
@@ -30,7 +30,7 @@ export function UrgencySelector({ value, onChange }: UrgencySelectorProps) {
           border: "border-[#9D4EDD]",
           glow: "shadow-[#9D4EDD]/50",
         };
-      case "high":
+      case "urgent":
         return {
           bg: "bg-gradient-to-r from-[#FF4800] to-[#FF6B35]",
           text: "text-[#FF4800]",

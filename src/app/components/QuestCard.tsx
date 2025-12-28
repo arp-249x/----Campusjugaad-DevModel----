@@ -11,6 +11,7 @@ interface QuestCardProps {
   highlighted?: boolean;
   onAccept?: () => void;
   isAccepted?: boolean;
+  isMyQuest?: boolean; // Added property
 }
 
 export function QuestCard({
@@ -24,6 +25,7 @@ export function QuestCard({
   highlighted = false,
   onAccept,
   isAccepted = false,
+  isMyQuest = false, // Default to false
 }: QuestCardProps) {
   const urgencyConfig = {
     low: {
@@ -110,19 +112,19 @@ export function QuestCard({
           </div>
         </div>
 
-        {/* Accept Button */}
+        {/* Accept Button - Updated Logic */}
         <button
           onClick={onAccept}
-          disabled={isAccepted}
+          disabled={isAccepted || isMyQuest}
           className={`px-6 py-2 rounded-lg transition-all ${
-            isAccepted
+            isAccepted || isMyQuest
               ? "bg-[var(--campus-border)] text-[var(--campus-text-secondary)] cursor-not-allowed"
               : highlighted
               ? "bg-[#FFD700] text-black hover:bg-[#FFD700]/80"
               : "bg-[#2D7FF9] text-white hover:bg-[#2D7FF9]/80"
           }`}
         >
-          {isAccepted ? "Accepted" : "Accept Quest"}
+          {isMyQuest ? "Your Quest" : isAccepted ? "Accepted" : "Accept Quest"}
         </button>
       </div>
 

@@ -1,83 +1,63 @@
-import { User, CreditCard, ClipboardList, Star, HelpCircle, LogOut } from "lucide-react";
-import { useState, useRef, useEffect } from "react";
+import { 
+  DropdownMenu, 
+  DropdownMenuContent, 
+  DropdownMenuItem, 
+  DropdownMenuLabel, 
+  DropdownMenuSeparator, 
+  DropdownMenuTrigger 
+} from "./ui/dropdown-menu";
+import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
+import { User, Settings, LogOut, HelpCircle } from "lucide-react";
 
 interface ProfileDropdownProps {
-  isOpen: boolean;
-  onClose: () => void;
-  onNavigate?: (page: string) => void;
+  user?: any;
+  onLogout?: () => void;
 }
 
-export function ProfileDropdown({ isOpen, onClose, onNavigate }: ProfileDropdownProps) {
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    function handleClickOutside(event: MouseEvent) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        onClose();
-      }
-    }
-
-    if (isOpen) {
-      document.addEventListener("mousedown", handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener("mousedown", handleClickOutside);
-    };
-  }, [isOpen, onClose]);
-
-  if (!isOpen) return null;
-
-  const menuItems = [
-    { icon: User, label: "My Details", action: "details" },
-    { icon: CreditCard, label: "Payment Info", action: "payment" },
-    { icon: ClipboardList, label: "Recent Tasks", action: "tasks" },
-    { icon: Star, label: "My Ratings", action: "ratings" },
-    { icon: HelpCircle, label: "Support", action: "support" },
-  ];
+export function ProfileDropdown({ user, onLogout }: ProfileDropdownProps) {
+  const initials = user?.name ? user.name.substring(0, 2).toUpperCase() : "CJ";
+  const displayName = user?.name || "Student";
+  const email = user?.email || "student@campus.edu";
 
   return (
-    <div
-      ref={dropdownRef}
-      className="absolute top-full right-0 mt-2 w-64 bg-[var(--campus-card-bg)] backdrop-blur-xl rounded-2xl border border-[var(--campus-border)] shadow-2xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200"
-    >
-      {/* Header */}
-      <div className="px-4 py-3 border-b border-[var(--campus-border)] bg-gradient-to-r from-[#2D7FF9]/10 to-[#9D4EDD]/10">
-        <p className="text-[var(--campus-text-primary)]">Rishav</p>
-        <p className="text-sm text-[var(--campus-text-secondary)]">Level 5 Hero</p>
-      </div>
-
-      {/* Menu Items */}
-      <div className="py-2">
-        {menuItems.map((item) => (
-          <button
-            key={item.action}
-            onClick={() => {
-              onNavigate?.(item.action);
-              onClose();
-            }}
-            className="w-full flex items-center gap-3 px-4 py-3 text-[var(--campus-text-secondary)] hover:text-[var(--campus-text-primary)] hover:bg-[var(--campus-border)] transition-colors"
-          >
-            <item.icon className="w-5 h-5" />
-            <span>{item.label}</span>
-          </button>
-        ))}
-      </div>
-
-      {/* Divider */}
-      <div className="border-t border-[var(--campus-border)]" />
-
-      {/* Logout */}
-      <button
-        onClick={() => {
-          onNavigate?.("logout");
-          onClose();
-        }}
-        className="w-full flex items-center gap-3 px-4 py-3 text-red-500 hover:bg-red-500/10 transition-colors"
-      >
-        <LogOut className="w-5 h-5" />
-        <span>Logout</span>
-      </button>
-    </div>
+    <DropdownMenu>
+      <DropdownMenuTrigger className="focus:outline-none">
+        <Avatar className="h-10 w-10 border-2 border-[var(--campus-border)] hover:border-[#2D7FF9] transition-colors cursor-pointer ring-offset-2 ring-offset-[var(--campus-bg)]">
+          <AvatarImage src="/placeholder-avatar.jpg" />
+          <AvatarFallback className="bg-gradient-to-br from-[#2D7FF9] to-[#9D4EDD] text-white font-bold">
+            {initials}
+          </AvatarFallback>
+        </Avatar>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56 bg-[var(--campus-card-bg)] border-[var(--campus-border)]" align="end">
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none text-[var(--campus-text-primary)]">{displayName}</p>
+            <p className="text-xs leading-none text-[var(--campus-text-secondary)]">{email}</p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator className="bg-[var(--campus-border)]" />
+        <DropdownMenuItem className="text-[var(--campus-text-primary)] focus:bg-[var(--campus-surface)] cursor-pointer">
+          <User className="mr-2 h-4 w-4" />
+          <span>Profile</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-[var(--campus-text-primary)] focus:bg-[var(--campus-surface)] cursor-pointer">
+          <Settings className="mr-2 h-4 w-4" />
+          <span>Settings</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem className="text-[var(--campus-text-primary)] focus:bg-[var(--campus-surface)] cursor-pointer">
+          <HelpCircle className="mr-2 h-4 w-4" />
+          <span>Help Center</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator className="bg-[var(--campus-border)]" />
+        <DropdownMenuItem 
+          onClick={onLogout}
+          className="text-red-500 focus:bg-red-500/10 focus:text-red-500 cursor-pointer"
+        >
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>Log out</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

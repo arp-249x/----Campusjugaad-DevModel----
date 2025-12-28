@@ -5,9 +5,10 @@ interface MobileTopBarProps {
   onMenuClick?: () => void;
   onWalletClick?: () => void;
   onNotificationClick?: () => void;
+  balance: number;
 }
 
-export function MobileTopBar({ onMenuClick, onWalletClick, onNotificationClick }: MobileTopBarProps) {
+export function MobileTopBar({ onMenuClick, onWalletClick, onNotificationClick, balance }: MobileTopBarProps) {
   const { theme, toggleTheme } = useTheme();
 
   return (
@@ -41,13 +42,13 @@ export function MobileTopBar({ onMenuClick, onWalletClick, onNotificationClick }
             )}
           </button>
 
-          {/* Wallet - Hidden on very small screens */}
+          {/* Wallet - Always visible now */}
           <button
             onClick={onWalletClick}
-            className="hidden xs:flex items-center gap-1 bg-[var(--campus-border)] backdrop-blur-md rounded-full px-2 py-1 border border-[var(--campus-border)]"
+            className="flex items-center gap-1 bg-[var(--campus-border)] backdrop-blur-md rounded-full px-2 py-1 border border-[var(--campus-border)]"
           >
             <Wallet className="w-3 h-3 text-[#00F5D4]" />
-            <span className="text-xs text-[#00F5D4]">₹450</span>
+            <span className="text-xs text-[#00F5D4]">₹{balance}</span>
           </button>
 
           {/* Notification Bell */}

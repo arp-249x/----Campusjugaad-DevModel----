@@ -1,184 +1,123 @@
-import { Trophy, Zap, Target, TrendingUp, CircleCheck, Clock } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, Package } from "lucide-react";
 
-export function DashboardView() {
-  const stats = [
-    { label: "Total Earnings", value: "₹4,250", icon: TrendingUp, color: "#00F5D4" },
-    { label: "Quests Completed", value: "42", icon: CircleCheck, color: "#2D7FF9" },
-    { label: "Current Level", value: "15", icon: Trophy, color: "#FFD700" },
-    { label: "Total XP", value: "8,450", icon: Zap, color: "#9D4EDD" },
-  ];
+interface DashboardViewProps {
+  currentUser: any;
+  activeQuest: any;
+  activityLog: any[];
+  postedQuests: any[];
+}
 
-  const recentQuests = [
-    {
-      title: "Deliver Lab Coat",
-      status: "completed",
-      reward: 250,
-      xp: 75,
-      time: "2 hours ago",
-    },
-    {
-      title: "Print Assignment",
-      status: "in-progress",
-      reward: 100,
-      xp: 30,
-      time: "In progress",
-    },
-    {
-      title: "Tutoring Session",
-      status: "pending",
-      reward: 600,
-      xp: 200,
-      time: "Tomorrow, 5 PM",
-    },
-  ];
-
-  const achievements = [
-    { title: "Early Bird", description: "Complete 5 quests before 9 AM", unlocked: true },
-    { title: "Speed Demon", description: "Complete 10 urgent quests", unlocked: true },
-    { title: "Helper Hero", description: "Help 50 students", unlocked: false },
-    { title: "Marathon Runner", description: "Complete 100 quests", unlocked: false },
-  ];
-
+export function DashboardView({ currentUser, activeQuest, activityLog, postedQuests }: DashboardViewProps) {
   return (
-    <div className="min-h-screen pt-20 md:pt-28 pb-20 md:pb-16 px-4 md:px-8 bg-[var(--campus-bg)]">
-      <div className="max-w-[1600px] mx-auto">
-        {/* Header */}
-        <div className="mb-8 md:mb-12">
-          <h1 className="text-[var(--campus-text-primary)] mb-2">My Dashboard</h1>
-          <p className="text-[var(--campus-text-secondary)]">Track your journey to becoming a Campus Legend</p>
+    <div className="min-h-screen pt-24 px-4 pb-20 bg-[var(--campus-bg)]">
+      <div className="max-w-[1200px] mx-auto">
+        
+        {/* Welcome Header */}
+        <div className="mb-8">
+           <h1 className="text-3xl font-bold text-[var(--campus-text-primary)]">
+             Dashboard
+           </h1>
+           <p className="text-[var(--campus-text-secondary)]">
+             Welcome back, {currentUser?.name}. Here's what's happening.
+           </p>
         </div>
 
         {/* Stats Grid */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-8 md:mb-12">
-          {stats.map((stat, index) => (
-            <div
-              key={index}
-              className="bg-[var(--campus-card-bg)] bg-opacity-50 backdrop-blur-xl rounded-2xl p-4 md:p-6 border border-[var(--campus-border)] hover:border-[var(--campus-border)] transition-all group"
-            >
-              <div className="flex items-center justify-between mb-3 md:mb-4">
-                <div
-                  className="w-10 h-10 md:w-12 md:h-12 rounded-xl flex items-center justify-center"
-                  style={{ backgroundColor: `${stat.color}20` }}
-                >
-                  <stat.icon className="w-5 h-5 md:w-6 md:h-6" style={{ color: stat.color }} />
-                </div>
-              </div>
-              <div className="text-2xl md:text-3xl mb-1" style={{ color: stat.color }}>
-                {stat.value}
-              </div>
-              <div className="text-[var(--campus-text-secondary)] text-xs md:text-sm">{stat.label}</div>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+           <StatCard label="Total XP" value={currentUser?.xp || 0} icon="⚡" color="bg-yellow-500/20 text-yellow-500" />
+           <StatCard label="Tasks Done" value={activityLog.length} icon="✅" color="bg-green-500/20 text-green-500" />
+           <StatCard label="Posted" value={postedQuests.length} icon="📢" color="bg-blue-500/20 text-blue-500" />
+           <StatCard label="Rating" value="5.0" icon="⭐" color="bg-orange-500/20 text-orange-500" />
         </div>
 
-        {/* Two Column Layout */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 md:gap-8">
-          {/* Recent Quests */}
-          <div className="lg:col-span-2">
-            <div className="bg-[var(--campus-card-bg)] bg-opacity-50 backdrop-blur-xl rounded-2xl p-4 md:p-6 border border-[var(--campus-border)]">
-              <h3 className="text-[var(--campus-text-primary)] mb-4 md:mb-6">Recent Quests</h3>
-              <div className="space-y-4">
-                {recentQuests.map((quest, index) => (
-                  <div
-                    key={index}
-                    className="bg-[var(--campus-surface)] rounded-xl p-4 border border-[var(--campus-border)] hover:border-[var(--campus-border)] transition-all"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <h4 className="text-[var(--campus-text-primary)] mb-1">{quest.title}</h4>
-                        <div className="flex items-center gap-2 text-sm">
-                          <Clock className="w-4 h-4 text-[var(--campus-text-secondary)]" />
-                          <span className="text-[var(--campus-text-secondary)]">{quest.time}</span>
-                        </div>
-                      </div>
-                      <div
-                        className={`px-3 py-1 rounded-full text-xs ${
-                          quest.status === "completed"
-                            ? "bg-[#00F5D4]/10 text-[#00F5D4] border border-[#00F5D4]/30"
-                            : quest.status === "in-progress"
-                            ? "bg-[#9D4EDD]/10 text-[#9D4EDD] border border-[#9D4EDD]/30"
-                            : "bg-[var(--campus-border)] text-[var(--campus-text-secondary)] border border-[var(--campus-border)]"
-                        }`}
-                      >
-                        {quest.status === "completed"
-                          ? "Completed"
-                          : quest.status === "in-progress"
-                          ? "In Progress"
-                          : "Pending"}
-                      </div>
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+           
+           {/* Left Column: Active & Posted */}
+           <div className="space-y-6">
+              <h2 className="text-xl font-bold text-[var(--campus-text-primary)]">Current Status</h2>
+              
+              {/* Active Quest Card */}
+              {activeQuest ? (
+                 <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/40 p-5 rounded-2xl relative overflow-hidden">
+                    <div className="absolute top-2 right-2 text-xs font-bold bg-[#2D7FF9] text-white px-2 py-1 rounded">ACTIVE</div>
+                    <h3 className="font-bold text-lg text-[var(--campus-text-primary)] mb-1">{activeQuest.title}</h3>
+                    <p className="text-sm text-[var(--campus-text-secondary)] mb-3">{activeQuest.description}</p>
+                    <div className="flex items-center gap-4 text-sm">
+                       <span className="flex items-center gap-1 text-green-400"><Clock className="w-4 h-4"/> In Progress</span>
+                       <span className="font-mono text-[var(--campus-text-primary)]">Reward: ₹{activeQuest.reward}</span>
                     </div>
-                    <div className="flex items-center gap-4 pt-3 border-t border-[var(--campus-border)]">
-                      <span className="text-[#00F5D4]">₹{quest.reward}</span>
-                      <span className="text-[#9D4EDD] text-sm">+{quest.xp} XP</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
+                 </div>
+              ) : (
+                 <div className="border border-dashed border-[var(--campus-border)] rounded-2xl p-6 text-center text-[var(--campus-text-secondary)]">
+                    No active quest right now. Go find one!
+                 </div>
+              )}
 
-          {/* Achievements */}
-          <div className="lg:col-span-1">
-            <div className="bg-[var(--campus-card-bg)] bg-opacity-50 backdrop-blur-xl rounded-2xl p-4 md:p-6 border border-[var(--campus-border)]">
-              <h3 className="text-[var(--campus-text-primary)] mb-4 md:mb-6">Achievements</h3>
-              <div className="space-y-3">
-                {achievements.map((achievement, index) => (
-                  <div
-                    key={index}
-                    className={`bg-[var(--campus-surface)] rounded-xl p-4 border transition-all ${
-                      achievement.unlocked
-                        ? "border-[#FFD700]/30"
-                        : "border-[var(--campus-border)] opacity-60"
-                    }`}
-                  >
-                    <div className="flex items-start gap-3">
-                      <div
-                        className={`w-10 h-10 rounded-lg flex items-center justify-center shrink-0 ${
-                          achievement.unlocked
-                            ? "bg-[#FFD700]/20"
-                            : "bg-[var(--campus-border)]"
-                        }`}
-                      >
-                        <Trophy
-                          className="w-5 h-5"
-                          style={{
-                            color: achievement.unlocked ? "#FFD700" : "#666",
-                          }}
-                        />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h4 className="text-[var(--campus-text-primary)] text-sm mb-1">
-                          {achievement.title}
-                        </h4>
-                        <p className="text-[var(--campus-text-secondary)] text-xs">
-                          {achievement.description}
-                        </p>
-                      </div>
+              {/* Posted Quests List */}
+              <div>
+                 <h3 className="text-sm font-bold text-[var(--campus-text-secondary)] uppercase tracking-wider mb-3">Posted by You</h3>
+                 {postedQuests.length > 0 ? (
+                    <div className="space-y-3">
+                       {postedQuests.map((q, i) => (
+                          <div key={i} className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] p-4 rounded-xl flex justify-between items-center">
+                             <div>
+                                <p className="font-medium text-[var(--campus-text-primary)]">{q.title}</p>
+                                <p className="text-xs text-[var(--campus-text-secondary)]">{q.deadline}</p>
+                             </div>
+                             <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded">PENDING</span>
+                          </div>
+                       ))}
                     </div>
-                  </div>
-                ))}
+                 ) : (
+                    <p className="text-sm text-[var(--campus-text-secondary)] italic">You haven't asked for help yet.</p>
+                 )}
               </div>
-            </div>
-          </div>
+           </div>
+
+           {/* Right Column: History */}
+           <div>
+              <h2 className="text-xl font-bold text-[var(--campus-text-primary)] mb-4">Recent Activity</h2>
+              <div className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] rounded-2xl overflow-hidden">
+                 {activityLog.length > 0 ? (
+                    <div className="divide-y divide-[var(--campus-border)]">
+                       {activityLog.map((quest, i) => (
+                          <div key={i} className="p-4 flex items-center justify-between hover:bg-[var(--campus-surface)] transition-colors">
+                             <div className="flex items-center gap-3">
+                                <div className="bg-green-500/10 p-2 rounded-full text-green-500">
+                                   <CheckCircle2 className="w-5 h-5" />
+                                </div>
+                                <div>
+                                   <p className="font-medium text-[var(--campus-text-primary)]">{quest.title}</p>
+                                   <p className="text-xs text-[var(--campus-text-secondary)]">Completed</p>
+                                </div>
+                             </div>
+                             <span className="font-bold text-[#00F5D4]">+₹{quest.reward}</span>
+                          </div>
+                       ))}
+                    </div>
+                 ) : (
+                    <div className="p-8 text-center">
+                       <Package className="w-12 h-12 text-[var(--campus-border)] mx-auto mb-2" />
+                       <p className="text-[var(--campus-text-secondary)]">No completed tasks yet.</p>
+                    </div>
+                 )}
+              </div>
+           </div>
         </div>
 
-        {/* Progress Bar */}
-        <div className="mt-6 md:mt-8 bg-[var(--campus-card-bg)] bg-opacity-50 backdrop-blur-xl rounded-2xl p-4 md:p-6 border border-[var(--campus-border)]">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-[var(--campus-text-primary)] mb-1">Level 15 Progress</h3>
-              <p className="text-[var(--campus-text-secondary)] text-sm">450 XP to Level 16</p>
-            </div>
-            <div className="text-[#9D4EDD] text-sm md:text-base">8,450 / 8,900 XP</div>
-          </div>
-          <div className="relative h-3 bg-[var(--campus-border)] rounded-full overflow-hidden">
-            <div
-              className="absolute inset-y-0 left-0 bg-gradient-to-r from-[#2D7FF9] to-[#9D4EDD] rounded-full transition-all"
-              style={{ width: "95%" }}
-            ></div>
-          </div>
-        </div>
       </div>
     </div>
   );
+}
+
+function StatCard({ label, value, icon, color }: any) {
+    return (
+        <div className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] p-4 rounded-xl flex flex-col items-center justify-center text-center">
+            <div className={`w-10 h-10 rounded-full flex items-center justify-center text-xl mb-2 ${color}`}>
+                {icon}
+            </div>
+            <div className="text-2xl font-bold text-[var(--campus-text-primary)]">{value}</div>
+            <div className="text-xs text-[var(--campus-text-secondary)] uppercase">{label}</div>
+        </div>
+    )
 }
