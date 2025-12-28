@@ -97,7 +97,7 @@ function AppContent() {
   const fetchCurrentUser = async () => {
     if(!currentUser) return;
     try {
-        const res = await fetch('/api/auth/me?username=${currentUser.username}');
+        const res = await fetch(`/api/auth/me?username=${currentUser.username}`);
         if(res.ok) {
             const freshUser = await res.json();
             // Update Balance & XP, keep session
@@ -268,7 +268,7 @@ function AppContent() {
 const fetchTransactions = async () => {
   if (!currentUser) return;
   try {
-    const res = await fetch('/api/transactions?username=${currentUser.username}');
+    const res = await fetch(`/api/transactions?username=${currentUser.username}`);
     if (res.ok) {
       const data = await res.json();
       setTransactions(data.map((t: any) => ({
@@ -519,7 +519,8 @@ useEffect(() => {
                 // Logic: My History (Posted or Done)
                 activityLog={activityLog}
                 // Logic: Quests I posted that are still OPEN
-                postedQuests={quests.filter(q => q.postedBy === currentUser.username && q.status === 'open')}
+                postedQuests={quests.filter(q => q.postedBy === currentUser.username && ['open', 'active', 'completed'].includes(q.status)
+                )}
                 
                 // PASS NEW HANDLERS
                 onCancelQuest={handleCancelQuest}
