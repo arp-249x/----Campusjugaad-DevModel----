@@ -41,16 +41,26 @@ app.get('/', (req: Request, res: Response) => {
 
 // ... routes ...
 
+// ... (imports and middleware remain the same)
+
+// ... (routes remain the same)
+
 // RUN REFUND CHECKER EVERY 60 SECONDS
-setInterval(() => {
-  checkExpiredQuests();
-}, 60000); // 60000 ms = 1 minute
+// Note: setInterval might not run reliably in serverless functions as they spin down.
+// For production, Cron Jobs are better, but this won't break the app immediately.
+if (process.env.NODE_ENV !== 'production') {
+  setInterval(() => {
+    checkExpiredQuests();
+  }, 60000); 
+}
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
+// Only listen if NOT running on Vercel (Vercel sets VERCEL=1)
+if (process.env.NODE_ENV !== 'production') {
+    app.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`);
+    });
+}
 
-});
+// Export the app for Vercel
+export default app;;
 
-
-export default app;
