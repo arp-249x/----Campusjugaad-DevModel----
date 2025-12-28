@@ -59,21 +59,21 @@ export function DashboardView({
                     <h3 className="font-bold text-lg text-[var(--campus-text-primary)] mb-1">{activeQuest.title}</h3>
                     <p className="text-sm text-[var(--campus-text-secondary)] mb-3">{activeQuest.description}</p>
                     
-                    {/* Only show OTP if I am the POSTER */}
-{currentUser.username === activeQuest.postedBy ? (
-    <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
-        <span className="text-sm text-[var(--campus-text-secondary)]">Share OTP with Hero:</span>
-        <span className="font-mono text-xl font-bold text-[#00F5D4] tracking-widest">
-            {activeQuest.otp || "******"} 
-        </span>
-    </div>
-) : (
-    <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-lg mb-3">
-        <p className="text-sm text-yellow-500 text-center">
-            Ask the <strong>Task Master</strong> for the OTP to complete this quest.
-        </p>
-    </div>
-)}
+                    {/* OTP SECTION: Only show if I posted it */}
+                    {currentUser.username === activeQuest.postedBy ? (
+                        <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
+                            <span className="text-sm text-[var(--campus-text-secondary)]">Share OTP with Hero:</span>
+                            <span className="font-mono text-xl font-bold text-[#00F5D4] tracking-widest">
+                                {activeQuest.otp || "******"} 
+                            </span>
+                        </div>
+                    ) : (
+                        <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-lg mb-3">
+                            <p className="text-sm text-yellow-500 text-center">
+                                Ask the <strong>Task Master</strong> for the OTP to complete this quest.
+                            </p>
+                        </div>
+                    )}
 
                     <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-1 text-green-400">
@@ -96,7 +96,7 @@ export function DashboardView({
                  </div>
               )}
 
-              {/* Posted Quests List (WITH CANCEL) */}
+              {/* Posted Quests List (WITH DYNAMIC STATUS) */}
               <div>
                  <h3 className="text-sm font-bold text-[var(--campus-text-secondary)] uppercase tracking-wider mb-3">Posted by You</h3>
                  {postedQuests.length > 0 ? (
@@ -109,15 +109,25 @@ export function DashboardView({
                              </div>
                              
                              <div className="flex items-center gap-2">
-                                <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded">PENDING</span>
-                                {/* CANCEL BUTTON */}
-                                <button 
-                                    onClick={() => onCancelQuest(q._id)}
-                                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                    title="Cancel Quest"
-                                >
-                                    <Trash2 className="w-4 h-4" />
-                                </button>
+                                {/* DYNAMIC STATUS BADGE */}
+                                <span className={`text-xs px-2 py-1 rounded ${
+                                    q.status === 'open' ? 'bg-yellow-500/20 text-yellow-500' :
+                                    q.status === 'active' ? 'bg-blue-500/20 text-blue-500' :
+                                    'bg-green-500/20 text-green-500'
+                                }`}>
+                                    {q.status === 'open' ? 'PENDING' : q.status.toUpperCase()}
+                                </span>
+
+                                {/* CANCEL BUTTON (Only if Open) */}
+                                {q.status === 'open' && (
+                                    <button 
+                                        onClick={() => onCancelQuest(q._id)}
+                                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                        title="Cancel Quest"
+                                    >
+                                        <Trash2 className="w-4 h-4" />
+                                    </button>
+                                )}
                              </div>
                           </div>
                        ))}
