@@ -385,28 +385,42 @@ useEffect(() => {
   };
 
   const handleSendMessage = async (text: string) => {
-  // 👇 STRICT CHECK: If we have an active quest ID, it MUST be real chat
-  if (chatMode === 'real' || (activeQuest && chatMode !== 'ai')) {
-      const targetId = chatQuestId || activeQuest?._id;
-      
-      if (targetId) {
-        await fetch(`/api/quests/${targetId}/messages`, {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ sender: currentUser.username, text })
-        });
-        // Optimistic Update
+    // 👇 STRICT CHECK: If we have an active quest ID, it MUST be real chat
+    if (chatMode === 'real' || (activeQuest && chatMode !== 'ai')) {
+        const targetId = chatQuestId || activeQuest?._id;
+        
+        if (targetId) {
+          try {
+            // 1. Send to Backend and WAIT for response
+            const response = await fetch(`/api/quests/${targetId}/messages`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ sender: currentUser.username, text })
+            });
+
+            // 2. If successful, append the REAL message from server
+            if (response.ok) {
+              const savedMessage = await response.json();
+              setChatMessages(prev => [...prev, { 
+                id: savedMessage._id, // Use real ID
+                text: savedMessage.text, 
+                sender: 'user', 
+                timestamp: savedMessage.timestamp 
+              }]);
+            }
+          } catch (err) {
+            console.error("Failed to send message", err);
+          }
+        }
+    } 
+    // ONLY use AI if explicitly in AI mode
+    else if (chatMode === 'ai') {
         setChatMessages(prev => [...prev, { text, sender: 'user', timestamp: new Date() }]);
-      }
-  } 
-  // ONLY use AI if explicitly in AI mode
-  else if (chatMode === 'ai') {
-      setChatMessages(prev => [...prev, { text, sender: 'user', timestamp: new Date() }]);
-      setTimeout(() => {
-          setChatMessages(prev => [...prev, { text: "I am the Support Bot. For quest chats, please accept a quest!", sender: 'ai', timestamp: new Date() }]);
-      }, 1000);
-  }
-};
+        setTimeout(() => {
+            setChatMessages(prev => [...prev, { text: "I am the Support Bot. For quest chats, please accept a quest!", sender: 'ai', timestamp: new Date() }]);
+        }, 1000);
+    }
+  };
 
   const handleWithdraw = (amount: number) => {
     // Mock Withdraw (Frontend only for now)
