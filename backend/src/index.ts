@@ -41,12 +41,21 @@ app.get('/', (req: Request, res: Response) => {
 
 // ... routes ...
 
-// RUN REFUND CHECKER EVERY 60 SECONDS
+// ... (keep all your imports and middleware setup above) ...
+
+// RUN REFUND CHECKER (Note: In Vercel serverless, this runs only when the server is active)
 setInterval(() => {
   checkExpiredQuests();
-}, 60000); // 60000 ms = 1 minute
+}, 60000); 
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+// --- UPDATED START SERVER CODE ---
+
+// Only run app.listen locally. Vercel handles the port automatically.
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server is running on http://localhost:${PORT}`);
+  });
+}
+
+// REQUIRED: Export the app for Vercel
+export default app;
