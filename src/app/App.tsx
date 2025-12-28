@@ -145,27 +145,35 @@ function AppContent() {
   }, [currentUser]);
 
 
-  // --- 3. CHAT POLLING (Real Mode) ---
+ // --- 3. CHAT POLLING (Real Mode) ---
   useEffect(() => {
     let interval: any;
+    // Check if we are in real mode and have a valid Quest ID
     if (chatMode === 'real' && chatQuestId) {
         const fetchMessages = async () => {
             try {
-                const res = await fetch('/api/quests/${chatQuestId}/messages');
-                const data = await res.json();
-                setChatMessages(data.map((m: any) => ({
-                    id: m._id,
-                    text: m.text,
-                    sender: m.sender === currentUser?.username ? 'user' : 'other',
-                    timestamp: m.timestamp
-                })));
-            } catch (e) {}
+                // 👇 FIX: Use relative path '/api' (No localhost!)
+                const res = await fetch(`/api/quests/${chatQuestId}/messages`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setChatMessages(data.map((m: any) => ({
+                        id: m._id,
+                        text: m.text,
+                        sender: m.sender === currentUser?.username ? 'user' : 'other',
+                        timestamp: m.timestamp
+                    })));
+                }
+            } catch (e) { 
+                console.error("Polling error", e); 
+            }
         };
+        
+        // Run immediately, then every 3 seconds
         fetchMessages();
         interval = setInterval(fetchMessages, 3000);
     }
     return () => clearInterval(interval);
-  }, [chatMode, chatQuestId]);
+  }, [chatMode, chatQuestId, currentUser]);
 
 
   // --- ACTIONS ---
@@ -385,35 +393,35 @@ useEffect(() => {
   };
 
   const handleSendMessage = async (text: string) => {
-    // 👇 STRICT CHECK: If we have an active quest ID, it MUST be real chat
+    // Only send if in real mode or we have an active quest
     if (chatMode === 'real' || (activeQuest && chatMode !== 'ai')) {
         const targetId = chatQuestId || activeQuest?._id;
         
         if (targetId) {
           try {
-            // 1. Send to Backend and WAIT for response
+            // 👇 FIX: Wait for the server response
             const response = await fetch(`/api/quests/${targetId}/messages`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ sender: currentUser.username, text })
             });
 
-            // 2. If successful, append the REAL message from server
+            // Only update UI if server says "OK"
             if (response.ok) {
-              const savedMessage = await response.json();
-              setChatMessages(prev => [...prev, { 
-                id: savedMessage._id, // Use real ID
-                text: savedMessage.text, 
-                sender: 'user', 
-                timestamp: savedMessage.timestamp 
-              }]);
+                const savedMessage = await response.json();
+                setChatMessages(prev => [...prev, { 
+                    id: savedMessage._id, 
+                    text: savedMessage.text, 
+                    sender: 'user', 
+                    timestamp: savedMessage.timestamp 
+                }]);
             }
-          } catch (err) {
-            console.error("Failed to send message", err);
+          } catch(err) {
+            console.error("Failed to send", err);
           }
         }
     } 
-    // ONLY use AI if explicitly in AI mode
+    // AI Fallback
     else if (chatMode === 'ai') {
         setChatMessages(prev => [...prev, { text, sender: 'user', timestamp: new Date() }]);
         setTimeout(() => {
