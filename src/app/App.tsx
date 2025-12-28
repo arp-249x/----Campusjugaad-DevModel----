@@ -97,7 +97,7 @@ function AppContent() {
   const fetchCurrentUser = async () => {
     if(!currentUser) return;
     try {
-        const res = await fetch(`http://localhost:5000/api/auth/me?username=${currentUser.username}`);
+        const res = await fetch('/api/auth/me?username=${currentUser.username}');
         if(res.ok) {
             const freshUser = await res.json();
             // Update Balance & XP, keep session
@@ -121,7 +121,7 @@ function AppContent() {
   // --- 2. QUEST DATA FETCHING ---
   const fetchQuests = async () => {
     try {
-      const res = await fetch('http://localhost:5000/api/quests');
+      const res = await fetch('/api/quests');
       const data = await res.json();
       setQuests(data);
       
@@ -151,7 +151,7 @@ function AppContent() {
     if (chatMode === 'real' && chatQuestId) {
         const fetchMessages = async () => {
             try {
-                const res = await fetch(`http://localhost:5000/api/quests/${chatQuestId}/messages`);
+                const res = await fetch('/api/quests/${chatQuestId}/messages');
                 const data = await res.json();
                 setChatMessages(data.map((m: any) => ({
                     id: m._id,
@@ -218,7 +218,7 @@ function AppContent() {
     }
 
     try {
-      const response = await fetch('http://localhost:5000/api/quests', {
+      const response = await fetch('/api/quests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -247,7 +247,7 @@ function AppContent() {
 const fetchTransactions = async () => {
   if (!currentUser) return;
   try {
-    const res = await fetch(`http://localhost:5000/api/transactions?username=${currentUser.username}`);
+    const res = await fetch('/api/transactions?username=${currentUser.username}');
     if (res.ok) {
       const data = await res.json();
       setTransactions(data.map((t: any) => ({
@@ -279,7 +279,7 @@ useEffect(() => {
   const handleAcceptQuest = async (quest: Quest) => {
   // ... existing checks ...
   try {
-    const res = await fetch(`http://localhost:5000/api/quests/${quest._id}/accept`, {
+    const res = await fetch(`/api/quests/${quest._id}/accept`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ heroUsername: currentUser.username })
@@ -305,7 +305,7 @@ useEffect(() => {
     if (!activeQuest || !currentUser) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/quests/${activeQuest._id}/complete`, {
+      const res = await fetch(`/api/quests/${activeQuest._id}/complete`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ otp: otpInput, heroUsername: currentUser.username })
@@ -340,7 +340,7 @@ useEffect(() => {
     if (!confirm("Give up on this quest?")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/quests/${activeQuest._id}/resign`, {
+      const res = await fetch(`/api/quests/${activeQuest._id}/resign`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ heroUsername: currentUser.username })
@@ -358,7 +358,7 @@ useEffect(() => {
     if (!confirm("Delete this quest? Funds will be refunded.")) return;
 
     try {
-      const res = await fetch(`http://localhost:5000/api/quests/${questId}`, {
+      const res = await fetch(`/api/quests/${questId}`, {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ username: currentUser.username })
@@ -374,7 +374,7 @@ useEffect(() => {
 
   const handleRateHero = async (questId: string, rating: number) => {
     try {
-        await fetch(`http://localhost:5000/api/quests/${questId}/rate`, {
+        await fetch(`/api/quests/${questId}/rate`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ rating })
@@ -390,7 +390,7 @@ useEffect(() => {
       const targetId = chatQuestId || activeQuest?._id;
       
       if (targetId) {
-        await fetch(`http://localhost:5000/api/quests/${targetId}/messages`, {
+        await fetch(`/api/quests/${targetId}/messages`, {
             method: 'POST',
             headers: {'Content-Type': 'application/json'},
             body: JSON.stringify({ sender: currentUser.username, text })
