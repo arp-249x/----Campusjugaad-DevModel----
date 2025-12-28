@@ -121,9 +121,13 @@ function AppContent() {
   // --- 2. QUEST DATA FETCHING ---
   const fetchQuests = async () => {
     try {
-      const res = await fetch('/api/quests');
-      const data = await res.json();
-      setQuests(data);
+      const url = currentUser 
+      ? `/api/quests?username=${currentUser.username}` 
+      : '/api/quests';
+      
+    const res = await fetch(url);
+    const data = await res.json();
+    setQuests(data);
       
       // Update Activity Log for Dashboard
       if (currentUser) {
