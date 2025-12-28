@@ -9,11 +9,12 @@ export function Footer() {
           Made with love by <span className="bg-gradient-to-r from-[#2D7FF9] to-[#9D4EDD] bg-clip-text text-transparent font-bold">Team Sashwat</span> <span className="text-red-500">❤️</span>
         </p>
         <p className="text-[var(--campus-text-secondary)] text-[10px] mt-2 opacity-50 uppercase tracking-widest">
-          © 2024 CampusJugaad • All Quests Reserved
+          © 2025 CampusJugaad • All Quests Reserved
         </p>
       </div>
       {/* This spacer prevents the Mobile Bottom Navigation from hiding the text */}
       <div className="h-16 md:hidden" />
     </footer>
   );
+
 }
