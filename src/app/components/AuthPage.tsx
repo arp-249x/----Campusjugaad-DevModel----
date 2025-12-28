@@ -258,7 +258,7 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
               onClick={onGuest}
               className="text-sm text-[var(--campus-text-secondary)] hover:text-[var(--campus-text-primary)] flex items-center justify-center gap-2 transition-colors"
             >
-              <Ghost className="w-4 h-4" /> Continue as Guest (Prototype)
+              <Ghost className="w-4 h-4" /> Continue as Guest (Testing)
             </button>
           </div>
         </div>
@@ -274,3 +274,4 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
   );
 
 }
+
