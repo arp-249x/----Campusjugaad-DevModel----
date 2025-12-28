@@ -131,6 +131,17 @@ function AppContent() {
       
       // Update Activity Log for Dashboard
       if (currentUser) {
+          // 2. RESTORE ACTIVE QUEST STATE (The Fix)
+         // Check if I am the Hero of a quest that is still 'active'
+         const ongoingQuest = data.find((q: Quest) => 
+            q.assignedTo === currentUser.username && q.status === 'active'
+         );
+
+         // If found, force the UI to show the Active Quest Bar again
+         if (ongoingQuest) {
+            setActiveQuest(ongoingQuest);
+         }
+        
          const myHistory = data.filter((q: Quest) => 
             (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) && 
             ['completed', 'expired'].includes(q.status)
