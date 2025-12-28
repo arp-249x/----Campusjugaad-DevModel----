@@ -99,24 +99,26 @@ export function TaskMasterView({ addQuest, balance }: TaskMasterViewProps) {
     return true;
   };
 
-  const handleSubmit = () => {
-  if (validateForm()) {
-    const newQuest: QuestInput = {
-      title: formData.taskName,
-      description: formData.taskDetails,
-      reward: parseFloat(formData.incentive),
-      xp: Math.floor(parseFloat(formData.incentive) / 3),
-      urgency: urgency,
-      deadline: formatDeadline(formData.deadline), // Keeps the pretty string (e.g. "Tomorrow")
+  // Add 'async' here
+  const handleSubmit = async () => {
+    if (validateForm()) {
+      const newQuest: QuestInput = {
+        title: formData.taskName,
+        description: formData.taskDetails,
+        reward: parseFloat(formData.incentive),
+        xp: Math.floor(parseFloat(formData.incentive) / 3),
+        urgency: urgency,
+        deadline: formatDeadline(formData.deadline),
+        deadlineIso: new Date(formData.deadline).toISOString(),
+        location: formData.location || undefined, // This is now safe because we updated the Model!
+        isMyQuest: true,
+      };
       
-      // 👇 ADD THIS LINE! This sends the real ISODate to the backend
-      deadlineIso: new Date(formData.deadline).toISOString(), 
+      // Add 'await' here so we wait for the result
+      await addQuest(newQuest);
       
-      location: formData.location || undefined,
-      isMyQuest: true,
-    };
-      
-      addQuest(newQuest);
+      // Move these inside the success flow in a real app, 
+      // but for now, the backend fix (Step 1) ensures this won't fail silently anymore.
       setShowSuccessModal(true);
       showToast("success", "Quest Posted!", "Amount held in Escrow. Waiting for Hero.");
       
