@@ -1,8 +1,10 @@
-import { useState, useEffect } from "react";
-import { Eye, EyeOff, ArrowRight, Sparkles, AlertTriangle, Ghost } from "lucide-react";
+import { useState } from "react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "./ui/tabs";
+import { Sparkles, Loader2 } from "lucide-react";
 
 interface AuthPageProps {
   onLogin: (user: any) => void;
@@ -10,261 +12,189 @@ interface AuthPageProps {
 }
 
 export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
-  const [isRegistering, setIsRegistering] = useState(false);
-  
-  // Form States
-  const [formData, setFormData] = useState({
-    name: "",
-    username: "",
-    email: "",
-    dob: "",
-    password: ""
-  });
-  
+  const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   
-  // --- PUN LOGIC ---
-  const [currentPun, setCurrentPun] = useState(""); 
-  const [fieldPuns, setFieldPuns] = useState<Record<string, string>>({});
+  // Login State
+  const [loginUsername, setLoginUsername] = useState("");
+  const [loginPassword, setLoginPassword] = useState("");
 
-  useEffect(() => {
-    const punLibrary = {
-      username: ["Captain Cool?", "TheOneWhoKnocks?", "IdentityTheftIsntAJoke", "FutureCEO", "MainCharacterVibes"],
-      password: ["Relax, we aren't seeing it", "Secret sauce 🤫", "shhh... it's safe", "1234... just kidding", "Top secret clearance"],
-      email: ["We won't spam (much)", "College ID preferred", "Slide into our database", "No owls, just emails"],
-      dob: ["Age is just a number", "Level 1 started on...", "Technically an adult?", "Vintage year?"],
-      name: ["What do friends call you?", "The legend themself", "Name on the degree"],
-      default: "Ready to save the semester?"
-    };
+  // Register State
+  const [regName, setRegName] = useState("");
+  const [regUsername, setRegUsername] = useState("");
+  const [regPassword, setRegPassword] = useState("");
 
-    const getRandom = (arr: string[]) => arr[Math.floor(Math.random() * arr.length)];
-
-    setFieldPuns({
-      username: getRandom(punLibrary.username),
-      password: getRandom(punLibrary.password),
-      email: getRandom(punLibrary.email),
-      dob: getRandom(punLibrary.dob),
-      name: getRandom(punLibrary.name),
-      default: punLibrary.default
-    });
-    
-    setCurrentPun(punLibrary.default);
-  }, []);
-
-  const handleInputChange = (field: string, value: string) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-    setError("");
-  };
-
-  const handleFocus = (field: string) => {
-    if (fieldPuns[field]) {
-      setCurrentPun(fieldPuns[field]);
-    }
-  };
-
-  // --- UPDATED REGISTER LOGIC (With Backend) ---
-  const handleRegister = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    // 1. Check for empty fields
-    if (!formData.name || !formData.username || !formData.email || !formData.password || !formData.dob) {
-      setError("Please fill in all fields!");
-      return;
-    }
-
-    // 2. AGE VALIDATION LOGIC
-    const birthDate = new Date(formData.dob);
-    const today = new Date();
-    
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-
-    if (age < 16) {
-      setError("You must be at least 16 years old to join CampusJugaad.");
-      return;
-    }
-
-    // 3. SEND TO BACKEND
-    try {
-      const response = await fetch('http://localhost:5000/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        setError(data.message || "Registration failed");
-        return;
-      }
-
-      onLogin(data); // Log in with real data from DB
-    } catch (err) {
-      console.error(err);
-      setError("Cannot connect to server. Is backend running?");
-    }
-  };
-
-  // --- UPDATED LOGIN LOGIC (With Backend) ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+    setIsLoading(true);
+    setError("");
+
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      // CHANGED: Removed http://localhost:5000
+      const res = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email: formData.email, password: formData.password }),
+        body: JSON.stringify({ username: loginUsername, password: loginPassword }),
       });
 
-      const data = await response.json();
+      const data = await res.json();
 
-      if (!response.ok) {
+      if (res.ok) {
+        onLogin(data);
+      } else {
         setError(data.message || "Login failed");
-        return;
       }
-
-      onLogin(data);
     } catch (err) {
-      console.error(err);
-      setError("Cannot connect to server. Is backend running?");
+      setError("Failed to connect to server");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleRegister = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // CHANGED: Removed http://localhost:5000
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: regName, username: regUsername, password: regPassword }),
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        // Auto login after register
+        onLogin(data);
+      } else {
+        setError(data.message || "Registration failed");
+      }
+    } catch (err) {
+      setError("Failed to connect to server");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-[var(--campus-bg)] flex flex-col items-center justify-center p-4 relative overflow-hidden transition-colors duration-300">
-      <div className="absolute top-0 left-0 w-[500px] h-[500px] bg-[#2D7FF9]/20 rounded-full blur-[120px] animate-pulse pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-[500px] h-[500px] bg-[#9D4EDD]/20 rounded-full blur-[120px] animate-pulse pointer-events-none" style={{ animationDelay: '1s' }} />
+    <div className="min-h-screen flex items-center justify-center bg-[var(--campus-bg)] p-4 relative overflow-hidden">
+      
+      {/* Background Blobs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[500px] h-[500px] bg-[#2D7FF9]/20 rounded-full blur-[100px] animate-pulse"></div>
+      <div className="absolute bottom-[-10%] right-[-10%] w-[500px] h-[500px] bg-[#9D4EDD]/20 rounded-full blur-[100px] animate-pulse" style={{ animationDelay: '1s' }}></div>
 
-      <div className="w-full max-w-md relative z-10">
-        <div className="text-center mb-8">
-          <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-[#2D7FF9] to-[#9D4EDD] bg-clip-text text-transparent mb-2">
-            CampusJugaad
-          </h1>
-          <p className="text-[var(--campus-text-secondary)]">Delegate chaos. Be a Hero.</p>
-        </div>
-
-        <div className="bg-[var(--campus-card-bg)] backdrop-blur-xl border border-[var(--campus-border)] p-6 md:p-8 rounded-3xl shadow-2xl transition-all duration-500">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-2xl font-bold text-[var(--campus-text-primary)]">
-              {isRegistering ? "Join the Squad" : "Welcome Back"}
-            </h2>
-            <Sparkles className="w-6 h-6 text-[#F72585] animate-spin-slow" />
+      <Card className="w-full max-w-md border-[var(--campus-border)] bg-[var(--campus-card-bg)]/80 backdrop-blur-xl shadow-2xl relative z-10">
+        <CardHeader className="text-center space-y-2">
+          <div className="mx-auto w-12 h-12 bg-gradient-to-tr from-[#2D7FF9] to-[#9D4EDD] rounded-xl flex items-center justify-center shadow-lg mb-2">
+            <Sparkles className="text-white w-6 h-6" />
           </div>
+          <CardTitle className="text-2xl font-bold text-[var(--campus-text-primary)]">
+            Welcome to CampusJugaad
+          </CardTitle>
+          <CardDescription className="text-[var(--campus-text-secondary)]">
+            Your campus marketplace for help & rewards.
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="login" className="w-full">
+            <TabsList className="grid w-full grid-cols-2 mb-4 bg-[var(--campus-surface)]">
+              <TabsTrigger value="login">Login</TabsTrigger>
+              <TabsTrigger value="register">Sign Up</TabsTrigger>
+            </TabsList>
 
-          <form onSubmit={isRegistering ? handleRegister : handleLogin} className="space-y-4">
-            
-            <div className="h-6 text-center text-sm font-medium text-[#2D7FF9] transition-all duration-300">
-              {currentPun || "Ready?"}
-            </div>
-
-            {isRegistering && (
-              <div className="grid grid-cols-2 gap-4">
+            {/* LOGIN FORM */}
+            <TabsContent value="login">
+              <form onSubmit={handleLogin} className="space-y-4">
                 <div className="space-y-2">
-                  <Label className="text-[var(--campus-text-secondary)]">Full Name</Label>
+                  <Label htmlFor="username">Username</Label>
                   <Input 
-                    placeholder="Real Name" 
-                    className="bg-[var(--campus-bg)] border-[var(--campus-border)] text-[var(--campus-text-primary)]"
-                    value={formData.name}
-                    onChange={(e) => handleInputChange("name", e.target.value)}
-                    onFocus={() => handleFocus("name")}
+                    id="username" 
+                    placeholder="e.g. hero123" 
+                    value={loginUsername}
+                    onChange={(e) => setLoginUsername(e.target.value)}
+                    required
+                    className="bg-[var(--campus-bg)]"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label className="text-[var(--campus-text-secondary)]">Username</Label>
+                  <Label htmlFor="password">Password</Label>
                   <Input 
-                    placeholder="CoolName123" 
-                    className="bg-[var(--campus-bg)] border-[var(--campus-border)] text-[var(--campus-text-primary)]"
-                    value={formData.username}
-                    onChange={(e) => handleInputChange("username", e.target.value)}
-                    onFocus={() => handleFocus("username")}
+                    id="password" 
+                    type="password" 
+                    value={loginPassword}
+                    onChange={(e) => setLoginPassword(e.target.value)}
+                    required
+                    className="bg-[var(--campus-bg)]"
                   />
                 </div>
-              </div>
-            )}
+                {error && <p className="text-red-500 text-sm font-medium text-center">{error}</p>}
+                <Button type="submit" className="w-full bg-[#2D7FF9] hover:bg-[#2D7FF9]/90 text-white" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Login"}
+                </Button>
+              </form>
+            </TabsContent>
 
-            {isRegistering && (
-               <div className="space-y-2">
-                  <Label className="text-[var(--campus-text-secondary)]">Date of Birth</Label>
+            {/* REGISTER FORM */}
+            <TabsContent value="register">
+              <form onSubmit={handleRegister} className="space-y-4">
+                <div className="space-y-2">
+                  <Label htmlFor="reg-name">Full Name</Label>
                   <Input 
-                    type="date"
-                    className="bg-[var(--campus-bg)] border-[var(--campus-border)] text-[var(--campus-text-primary)]"
-                    value={formData.dob}
-                    onChange={(e) => handleInputChange("dob", e.target.value)}
-                    onFocus={() => handleFocus("dob")}
+                    id="reg-name" 
+                    placeholder="John Doe" 
+                    value={regName}
+                    onChange={(e) => setRegName(e.target.value)}
+                    required
+                    className="bg-[var(--campus-bg)]"
                   />
-               </div>
-            )}
-
-            <div className="space-y-2">
-              <Label className="text-[var(--campus-text-secondary)]">Email Address</Label>
-              <Input 
-                type="email" 
-                placeholder="student@college.edu" 
-                className="bg-[var(--campus-bg)] border-[var(--campus-border)] text-[var(--campus-text-primary)]"
-                value={formData.email}
-                onChange={(e) => handleInputChange("email", e.target.value)}
-                onFocus={() => handleFocus("email")}
-              />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-user">Username</Label>
+                  <Input 
+                    id="reg-user" 
+                    placeholder="Choose a unique username" 
+                    value={regUsername}
+                    onChange={(e) => setRegUsername(e.target.value)}
+                    required
+                    className="bg-[var(--campus-bg)]"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="reg-pass">Password</Label>
+                  <Input 
+                    id="reg-pass" 
+                    type="password" 
+                    value={regPassword}
+                    onChange={(e) => setRegPassword(e.target.value)}
+                    required
+                    className="bg-[var(--campus-bg)]"
+                  />
+                </div>
+                {error && <p className="text-red-500 text-sm font-medium text-center">{error}</p>}
+                <Button type="submit" className="w-full bg-[#9D4EDD] hover:bg-[#9D4EDD]/90 text-white" disabled={isLoading}>
+                  {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Create Account"}
+                </Button>
+              </form>
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+        <CardFooter className="flex flex-col gap-4">
+          <div className="relative w-full">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-[var(--campus-border)]" />
             </div>
-
-            <div className="space-y-2">
-              <Label className="text-[var(--campus-text-secondary)]">Password</Label>
-              <div className="relative">
-                <Input 
-                  type="password"
-                  placeholder="••••••••" 
-                  className="bg-[var(--campus-bg)] border-[var(--campus-border)] pr-10 text-[var(--campus-text-primary)]"
-                  value={formData.password}
-                  onChange={(e) => handleInputChange("password", e.target.value)}
-                  onFocus={() => handleFocus("password")}
-                />
-              </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-[var(--campus-card-bg)] px-2 text-[var(--campus-text-secondary)]">Or continue as</span>
             </div>
-
-            {error && <p className="text-red-500 text-sm text-center font-medium animate-pulse">{error}</p>}
-
-            <Button className="w-full bg-gradient-to-r from-[#2D7FF9] to-[#9D4EDD] hover:opacity-90 transition-opacity h-12 text-lg font-bold shadow-lg text-white">
-              {isRegistering ? "Register Account" : "Login"} <ArrowRight className="ml-2 w-5 h-5" />
-            </Button>
-          </form>
-
-          <div className="mt-6 flex flex-col gap-4 text-center">
-            <p className="text-[var(--campus-text-secondary)] text-sm">
-              {isRegistering ? "Already have an account?" : "New to Campus?"} {" "}
-              <button 
-                onClick={() => { setIsRegistering(!isRegistering); setError(""); setCurrentPun(fieldPuns.default); }}
-                className="text-[#2D7FF9] hover:underline font-bold"
-              >
-                {isRegistering ? "Login Here" : "Create Account"}
-              </button>
-            </p>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center"><span className="w-full border-t border-[var(--campus-border)]"></span></div>
-              <div className="relative flex justify-center text-xs uppercase"><span className="bg-[var(--campus-card-bg)] px-2 text-[var(--campus-text-secondary)]">For Judges</span></div>
-            </div>
-
-            <button 
-              onClick={onGuest}
-              className="text-sm text-[var(--campus-text-secondary)] hover:text-[var(--campus-text-primary)] flex items-center justify-center gap-2 transition-colors"
-            >
-              <Ghost className="w-4 h-4" /> Continue as Guest (Prototype)
-            </button>
           </div>
-        </div>
-
-        <div className="mt-8 bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex items-start gap-3 backdrop-blur-sm">
-           <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
-           <p className="text-xs text-yellow-200/80 leading-relaxed text-left">
-             <span className="font-bold text-yellow-500">Note:</span> The Guest button still uses LocalStorage (Offline). <br/> Register/Login uses the new Backend Server!
-           </p>
-        </div>
-      </div>
+          <Button variant="outline" className="w-full border-[var(--campus-border)]" onClick={onGuest}>
+            Guest User (Demo Mode)
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
 }
