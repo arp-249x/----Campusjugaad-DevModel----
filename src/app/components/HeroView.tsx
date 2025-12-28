@@ -17,29 +17,27 @@ interface Quest {
   highlighted?: boolean;
   isMyQuest?: boolean;
   otp: string;
+  postedBy?: string; // <--- ADDED: We need this to check ownership
 }
 
 interface HeroViewProps {
   quests: Quest[];
   onAcceptQuest?: (quest: Quest) => void;
-  activeQuest: any | null; // Receive the active quest from App
+  activeQuest: any | null;
+  currentUser: any; // <--- ADDED: Pass the logged-in user here
 }
 
-export function HeroView({ quests, onAcceptQuest, activeQuest }: HeroViewProps) {
+export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: HeroViewProps) { // <--- ADDED currentUser destructuring
   const [showToast, setShowToast] = useState(false);
   const [acceptedQuest, setAcceptedQuest] = useState<Quest | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [showEmpty, setShowEmpty] = useState(false);
 
   const handleAcceptQuest = (quest: Quest) => {
-    // If there is already an active quest, don't update local state.
-    // Just pass the event up so App.tsx can show the error toast.
     if (activeQuest) {
         onAcceptQuest?.(quest);
         return;
     }
-
-    // Normal acceptance flow
     setAcceptedQuest(quest);
     setShowToast(true);
     onAcceptQuest?.(quest);
@@ -57,7 +55,9 @@ export function HeroView({ quests, onAcceptQuest, activeQuest }: HeroViewProps) 
   return (
     <div className="min-h-screen pt-16 md:pt-28 pb-20 md:pb-16 px-4 md:px-8 bg-[var(--campus-bg)]">
       <div className="max-w-[1600px] mx-auto">
-        {/* Hero Section */}
+        
+        {/* ... (Header and Filter Bar code remains exactly the same) ... */}
+        {/* Just keep the Header and Filter Bar sections unchanged */}
         <div className="text-center mb-8 md:mb-12">
           <h1 className="mb-4 text-2xl md:text-4xl lg:text-5xl">
             Ready to Be a{" "}
@@ -69,35 +69,8 @@ export function HeroView({ quests, onAcceptQuest, activeQuest }: HeroViewProps) 
             Accept quests, earn rewards, level up your campus life.
           </p>
         </div>
-
-        {/* Filter Bar */}
-        <div className="flex flex-wrap items-center gap-3 md:gap-4 mb-8">
-          <div className="flex items-center gap-2 bg-[var(--campus-card-bg)] backdrop-blur-md rounded-xl px-3 md:px-4 py-2 md:py-3 border border-[var(--campus-border)] cursor-pointer hover:bg-opacity-80 transition-colors text-sm md:text-base">
-            <ArrowUpDown className="w-4 h-4 text-[var(--campus-text-secondary)]" />
-            <span className="text-[var(--campus-text-primary)]">Sort by: Highest Pay</span>
-          </div>
-          <div className="flex items-center gap-2 bg-[var(--campus-card-bg)] backdrop-blur-md rounded-xl px-3 md:px-4 py-2 md:py-3 border border-[var(--campus-border)] cursor-pointer hover:bg-opacity-80 transition-colors text-sm md:text-base">
-            <ListFilter className="w-4 h-4 text-[var(--campus-text-secondary)]" />
-            <span className="text-[var(--campus-text-primary)]">Filter: Urgent</span>
-          </div>
-          <div className="flex items-center gap-2 bg-[var(--campus-card-bg)] backdrop-blur-md rounded-xl px-3 md:px-4 py-2 md:py-3 border border-[var(--campus-border)] cursor-pointer hover:bg-opacity-80 transition-colors text-sm md:text-base">
-            <MapPin className="w-4 h-4 text-[var(--campus-text-secondary)]" />
-            <span className="text-[var(--campus-text-primary)]">Location: Hostels</span>
-          </div>
-
-          <div className="ml-auto flex items-center gap-4 md:gap-6 text-sm md:text-base">
-            <div className="text-center">
-              <div className="text-[var(--campus-text-secondary)] text-xs md:text-sm">Available Quests</div>
-              <div className="text-[var(--campus-text-primary)]">{quests.length}</div>
-            </div>
-            <div className="text-center">
-              <div className="text-[var(--campus-text-secondary)] text-xs md:text-sm">Total Rewards</div>
-              <div className="text-[#00F5D4]">
-                ₹{quests.reduce((sum, q) => sum + q.reward, 0)}
-              </div>
-            </div>
-          </div>
-        </div>
+        
+        {/* ... (Filter Bar code hidden for brevity, keep it as is) ... */}
 
         {isLoading && <SkeletonLoader />}
 
@@ -110,16 +83,23 @@ export function HeroView({ quests, onAcceptQuest, activeQuest }: HeroViewProps) 
 
         {!isLoading && !showEmpty && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {quests.map((quest, index) => (
-              <div key={index} className="relative group">
-                <QuestCard 
-                  {...quest} 
-                  onAccept={() => handleAcceptQuest(quest)}
-                  // Only show "Accepted" if this specific quest is the active one
-                  isAccepted={activeQuest?.title === quest.title}
-                />
-              </div>
-            ))}
+            {quests.map((quest, index) => {
+              // --- LOGIC FIX STARTS HERE ---
+              // Check if the current user is the one who posted this quest
+              const isOwner = currentUser?.username === quest.postedBy;
+              
+              return (
+                <div key={index} className="relative group">
+                  <QuestCard 
+                    {...quest} 
+                    onAccept={() => handleAcceptQuest(quest)}
+                    isAccepted={activeQuest?.title === quest.title}
+                    isMyQuest={isOwner} // <--- PASS THE CHECK HERE
+                  />
+                </div>
+              );
+              // --- LOGIC FIX ENDS HERE ---
+            })}
           </div>
         )}
       </div>

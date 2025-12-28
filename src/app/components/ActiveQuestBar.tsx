@@ -1,145 +1,131 @@
-import { Clock, CheckCircle2, ShieldCheck, MessageCircle } from "lucide-react";
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "./ui/dialog";
-import { InputOTP, InputOTPGroup, InputOTPSlot } from "./ui/input-otp";
+import { CheckCircle, MessageSquare, X, ChevronUp, ChevronDown } from "lucide-react";
+import { useState } from "react";
+import { motion, AnimatePresence } from "motion/react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+} from "./ui/dialog"; // Ensure you have these UI components
+import { Input } from "./ui/input";
 import { Button } from "./ui/button";
 
-interface ActiveQuest {
+interface Quest {
   title: string;
-  location?: string;
-  deadlineIso: string; 
-  otp: string; 
+  reward: number;
+  deadline: string;
+  status?: string;
 }
 
 interface ActiveQuestBarProps {
-  quest: ActiveQuest | null;
-  onComplete?: () => void;
-  onDismiss?: () => void;
-  onChatToggle?: () => void;
-  isChatOpen?: boolean;
+  quest: Quest;
+  onComplete: (otp: string) => void; // <--- Update Type
+  onDismiss: () => void;
+  isChatOpen: boolean;
+  onChatToggle: () => void;
 }
 
-export function ActiveQuestBar({ quest, onComplete, onDismiss, onChatToggle, isChatOpen }: ActiveQuestBarProps) {
-  const [timeLeft, setTimeLeft] = useState("");
-  const [isVerificationOpen, setIsVerificationOpen] = useState(false);
-  const [otpValue, setOtpValue] = useState("");
-  const [error, setError] = useState(false);
+export function ActiveQuestBar({ 
+  quest, 
+  onComplete, 
+  onDismiss, 
+  isChatOpen, 
+  onChatToggle 
+}: ActiveQuestBarProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false); // State for Modal
+  const [otpInput, setOtpInput] = useState("");
 
-  useEffect(() => {
-    if (!quest?.deadlineIso) return;
-
-    const calculateTime = () => {
-      const now = new Date().getTime();
-      const end = new Date(quest.deadlineIso).getTime();
-      const distance = end - now;
-
-      if (distance < 0) {
-        setTimeLeft("EXPIRED");
-      } else {
-        const hours = Math.floor((distance % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
-        const minutes = Math.floor((distance % (1000 * 60 * 60)) / (1000 * 60));
-        const seconds = Math.floor((distance % (1000 * 60)) / 1000);
-        setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
-      }
-    };
-
-    calculateTime();
-    const interval = setInterval(calculateTime, 1000);
-    return () => clearInterval(interval);
-  }, [quest]);
-
-  if (!quest) return null;
-
-  const handleVerify = () => {
-    if (otpValue === quest.otp) {
-      setIsVerificationOpen(false);
-      setOtpValue("");
-      setError(false);
-      onComplete?.();
-    } else {
-      setError(true);
-      setTimeout(() => setError(false), 2000);
+  const handleSubmitOtp = () => {
+    if (otpInput.length === 4) {
+      onComplete(otpInput); // Pass OTP to App.tsx
+      setShowOtpModal(false);
+      setOtpInput("");
     }
   };
 
   return (
     <>
-      <div className="fixed bottom-0 left-0 right-0 z-40 bg-gradient-to-r from-[#2D7FF9] to-[#9D4EDD] border-t border-white/20 shadow-2xl shadow-[#2D7FF9]/30 backdrop-blur-xl animate-in slide-in-from-bottom duration-500 mb-16 md:mb-0">
-        <div className="max-w-[1600px] mx-auto px-4 md:px-8 py-3 md:py-4">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-            
-            <div className="flex items-center gap-3 min-w-0 flex-1">
-              <div className="flex items-center gap-2 text-white min-w-0">
-                <span className="hidden sm:inline text-sm opacity-80">Active Quest:</span>
-                <span className="font-medium truncate">{quest.title}</span>
-                {quest.location && (
-                    <span className="hidden md:inline text-sm opacity-80">→ {quest.location}</span>
-                )}
-              </div>
-            </div>
+      {/* Existing Bar Code ... */}
+      <motion.div
+        initial={{ y: 100 }}
+        animate={{ y: 0 }}
+        exit={{ y: 100 }}
+        className="fixed bottom-20 md:bottom-8 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[600px] bg-[var(--campus-card-bg)] backdrop-blur-xl border border-[var(--campus-border)] rounded-2xl shadow-2xl z-40 overflow-hidden"
+      >
+        {/* ... (Keep your existing Header/Details section) ... */}
+        
+        <div className="p-4 flex items-center justify-between bg-gradient-to-r from-[#2D7FF9]/10 to-[#9D4EDD]/10">
+          <div onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer">
+            <h3 className="font-semibold text-[var(--campus-text-primary)] flex items-center gap-2">
+              Currently Active: {quest.title}
+              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+            </h3>
+            <p className="text-xs text-[var(--campus-text-secondary)]">
+              Reward: <span className="text-[#00F5D4]">₹{quest.reward}</span> • Due: {quest.deadline}
+            </p>
+          </div>
 
-            <div className="flex items-center gap-2 bg-black/20 backdrop-blur-sm px-3 md:px-4 py-2 rounded-lg border border-white/20">
-              <Clock className="w-4 h-4 text-white" />
-              <span className="text-white font-mono text-sm md:text-base min-w-[80px] text-center">
-                {timeLeft || "--:--:--"}
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
+             <button
+              onClick={onChatToggle}
+              className={`p-2 rounded-full transition-colors ${
+                isChatOpen 
+                  ? "bg-[#2D7FF9] text-white" 
+                  : "hover:bg-[var(--campus-border)] text-[var(--campus-text-secondary)]"
+              }`}
+            >
+              <MessageSquare className="w-5 h-5" />
+            </button>
 
-            <div className="flex items-center gap-2">
-              <button
-                onClick={onChatToggle}
-                className={`flex items-center gap-2 px-3 py-2 rounded-lg transition-all border ${
-                  isChatOpen 
-                    ? "bg-white text-[#2D7FF9] border-white" 
-                    : "bg-white/20 text-white border-transparent hover:bg-white/30"
-                }`}
-              >
-                <MessageCircle className="w-5 h-5" />
-                <span className="text-sm font-medium hidden sm:inline">Chat</span>
-                {!isChatOpen && (
-                  <span className="flex h-2 w-2 relative">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                  </span>
-                )}
-              </button>
-
-              <button
-                onClick={() => setIsVerificationOpen(true)}
-                className="flex items-center gap-2 px-3 md:px-4 py-2 bg-[#00F5D4] hover:bg-[#00F5D4]/90 text-black rounded-lg transition-all shadow-lg hover:shadow-[#00F5D4]/50 hover:scale-105 active:scale-95"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                <span className="hidden sm:inline">Verify & Complete</span>
-                <span className="sm:hidden">Verify</span>
-              </button>
-              
-              {/* REMOVED CLOSE BUTTON HERE */}
-            </div>
+            {/* TRIGGER THE MODAL INSTEAD OF DIRECT CALL */}
+            <button
+              onClick={() => setShowOtpModal(true)} 
+              className="flex items-center gap-2 px-4 py-2 bg-[#00F5D4] text-black rounded-lg font-medium hover:bg-[#00F5D4]/80 transition-colors"
+            >
+              <CheckCircle className="w-4 h-4" />
+              <span className="hidden sm:inline">Complete</span>
+            </button>
           </div>
         </div>
-      </div>
+      </motion.div>
 
-      <Dialog open={isVerificationOpen} onOpenChange={setIsVerificationOpen}>
-        <DialogContent className="bg-[var(--campus-card-bg)] border-[var(--campus-border)]">
+      {/* --- OTP VERIFICATION MODAL --- */}
+      <Dialog open={showOtpModal} onOpenChange={setShowOtpModal}>
+        <DialogContent className="bg-[var(--campus-card-bg)] border-[var(--campus-border)] text-[var(--campus-text-primary)]">
           <DialogHeader>
-            <div className="mx-auto bg-[#00F5D4]/10 p-3 rounded-full mb-2">
-              <ShieldCheck className="w-8 h-8 text-[#00F5D4]" />
-            </div>
-            <DialogTitle className="text-center text-[var(--campus-text-primary)]">Verify Completion</DialogTitle>
-            <DialogDescription className="text-center text-[var(--campus-text-secondary)]">
-              Ask the Task Master in the chat for the 4-digit OTP to confirm.
-            </DialogDescription>
+            <DialogTitle>Verify Completion</DialogTitle>
           </DialogHeader>
-          <div className="flex flex-col items-center py-4 space-y-4">
-            <InputOTP maxLength={4} value={otpValue} onChange={setOtpValue}>
-              <InputOTPGroup>
-                {[0,1,2,3].map(i => <InputOTPSlot key={i} index={i} className="border-[var(--campus-border)] text-[var(--campus-text-primary)]" />)}
-              </InputOTPGroup>
-            </InputOTP>
-            {error && <p className="text-red-500 animate-pulse text-sm">Incorrect OTP! Please try again.</p>}
+          
+          <div className="py-4 space-y-4">
+            <p className="text-sm text-[var(--campus-text-secondary)]">
+              Ask the Task Master for the 4-digit OTP to confirm you finished the job.
+            </p>
+            
+            <div className="flex justify-center">
+              <Input
+                type="text"
+                maxLength={4}
+                placeholder="0 0 0 0"
+                className="text-center text-3xl tracking-[1em] h-16 w-64 font-mono uppercase border-[var(--campus-border)]"
+                value={otpInput}
+                onChange={(e) => setOtpInput(e.target.value)}
+              />
+            </div>
           </div>
+
           <DialogFooter>
-            <Button onClick={handleVerify} className="w-full bg-[#00F5D4] text-black hover:bg-[#00F5D4]/80">Confirm Completion</Button>
+            <Button variant="outline" onClick={() => setShowOtpModal(false)}>
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleSubmitOtp}
+              disabled={otpInput.length !== 4}
+              className="bg-[#00F5D4] text-black hover:bg-[#00F5D4]/80"
+            >
+              Verify & Claim ₹{quest.reward}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

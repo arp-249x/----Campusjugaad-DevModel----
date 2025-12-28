@@ -100,17 +100,21 @@ export function TaskMasterView({ addQuest, balance }: TaskMasterViewProps) {
   };
 
   const handleSubmit = () => {
-    if (validateForm()) {
-      const newQuest: QuestInput = {
-        title: formData.taskName,
-        description: formData.taskDetails,
-        reward: parseFloat(formData.incentive),
-        xp: Math.floor(parseFloat(formData.incentive) / 3),
-        urgency: urgency,
-        deadline: formatDeadline(formData.deadline),
-        location: formData.location || undefined,
-        isMyQuest: true,
-      };
+  if (validateForm()) {
+    const newQuest: QuestInput = {
+      title: formData.taskName,
+      description: formData.taskDetails,
+      reward: parseFloat(formData.incentive),
+      xp: Math.floor(parseFloat(formData.incentive) / 3),
+      urgency: urgency,
+      deadline: formatDeadline(formData.deadline), // Keeps the pretty string (e.g. "Tomorrow")
+      
+      // 👇 ADD THIS LINE! This sends the real ISODate to the backend
+      deadlineIso: new Date(formData.deadline).toISOString(), 
+      
+      location: formData.location || undefined,
+      isMyQuest: true,
+    };
       
       addQuest(newQuest);
       setShowSuccessModal(true);

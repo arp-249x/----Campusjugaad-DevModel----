@@ -15,8 +15,12 @@ import { NotificationPanel } from "./components/NotificationPanel";
 import { Footer } from "./components/Footer";
 import { ChatInterface } from "./components/ChatInterface";
 import { AuthPage } from "./components/AuthPage";
+import { HelpCircle } from "lucide-react";
 
+// --- TYPES ---
 export interface Quest {
+  _id?: string; // Added for Backend ID
+  id?: string;  // Fallback
   title: string;
   description: string;
   reward: number;
@@ -29,7 +33,9 @@ export interface Quest {
   isMyQuest?: boolean;
   otp: string;
   postedBy?: string;
-  status?: "open" | "completed"; // New Status Field
+  assignedTo?: string;
+  status: "open" | "active" | "completed" | "expired"; 
+  ratingGiven?: boolean;
 }
 
 export interface Transaction {
@@ -54,23 +60,32 @@ function AppContent() {
   // --- AUTH & USER STATE ---
   const [currentUser, setCurrentUser] = useState<any>(null);
   
+  // --- CHAT STATE ---
+  const [chatMode, setChatMode] = useState<'none' | 'ai' | 'real'>('none');
+  const [chatMessages, setChatMessages] = useState<any[]>([]);
+  const [chatQuestId, setChatQuestId] = useState<string | null>(null);
+  
   // --- APP STATE ---
   const [activeTab, setActiveTab] = useState("post");
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
+  const [quests, setQuests] = useState<Quest[]>([]); // Quest Data
   
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showWalletOverlay, setShowWalletOverlay] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
+  
   const { showToast } = useToast();
 
   // --- DATA STORES ---
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
-  const [activityLog, setActivityLog] = useState<Quest[]>([]);
+  const [activityLog, setActivityLog] = useState<Quest[]>([]); // Derived from quests now
   const [balance, setBalance] = useState(450);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  // 1. Initial Load of User (On Mount Only)
+  // --- 1. INITIAL LOAD & WALLET SYNC ---
+  
+  // A. Load User from LocalStorage
   useEffect(() => {
     const savedUser = localStorage.getItem("campus_jugaad_current_user");
     if (savedUser) {
@@ -78,66 +93,79 @@ function AppContent() {
     }
   }, []);
 
-  // 2. Load USER-SPECIFIC Data
+  // B. Sync Wallet with Backend (Handles Refunds/Rewards)
+  const fetchCurrentUser = async () => {
+    if(!currentUser) return;
+    try {
+        const res = await fetch(`http://localhost:5000/api/auth/me?username=${currentUser.username}`);
+        if(res.ok) {
+            const freshUser = await res.json();
+            // Update Balance & XP, keep session
+            setCurrentUser((prev: any) => ({ ...prev, balance: freshUser.balance, xp: freshUser.xp, rating: freshUser.rating }));
+            setBalance(freshUser.balance);
+            localStorage.setItem("campus_jugaad_current_user", JSON.stringify(freshUser));
+        }
+    } catch(err) { console.error("Sync failed"); }
+  };
+
+  // Sync every 5 seconds
   useEffect(() => {
-    if (!currentUser) return;
-
-    const username = currentUser.username;
-
-    const savedLog = localStorage.getItem(`campus_jugaad_activity_${username}`);
-    setActivityLog(savedLog ? JSON.parse(savedLog) : []);
-
-    const savedBalance = localStorage.getItem(`campus_jugaad_balance_${username}`);
-    setBalance(savedBalance ? parseFloat(savedBalance) : 450);
-
-    const savedTxns = localStorage.getItem(`campus_jugaad_transactions_${username}`);
-    if (savedTxns) {
-      setTransactions(JSON.parse(savedTxns));
-    } else {
-      setTransactions([{
-        id: "TXN-INIT",
-        type: "credit",
-        description: "Welcome Bonus",
-        amount: 50,
-        status: "success",
-        date: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})
-      }]);
+    if(currentUser) {
+        fetchCurrentUser();
+        const interval = setInterval(fetchCurrentUser, 5000); 
+        return () => clearInterval(interval);
     }
-
-    const savedActive = localStorage.getItem(`campus_jugaad_active_${username}`);
-    setActiveQuest(savedActive ? JSON.parse(savedActive) : null);
-    if(savedActive) setIsChatOpen(true);
-
   }, [currentUser?.username]);
 
-  // 3. Persistence Wrappers
-  useEffect(() => {
-    if (currentUser) {
-        localStorage.setItem(`campus_jugaad_activity_${currentUser.username}`, JSON.stringify(activityLog));
+
+  // --- 2. QUEST DATA FETCHING ---
+  const fetchQuests = async () => {
+    try {
+      const res = await fetch('http://localhost:5000/api/quests');
+      const data = await res.json();
+      setQuests(data);
+      
+      // Update Activity Log for Dashboard
+      if (currentUser) {
+         const myHistory = data.filter((q: Quest) => 
+            (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) && 
+            ['completed', 'expired'].includes(q.status)
+         );
+         setActivityLog(myHistory);
+      }
+    } catch (err) {
+      console.error("Failed to load quests:", err);
     }
-  }, [activityLog, currentUser]);
+  };
 
   useEffect(() => {
-    if (currentUser) {
-        localStorage.setItem(`campus_jugaad_balance_${currentUser.username}`, balance.toString());
-    }
-  }, [balance, currentUser]);
+    fetchQuests();
+    const interval = setInterval(fetchQuests, 5000); // Poll for new quests
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
-  useEffect(() => {
-    if (currentUser) {
-        localStorage.setItem(`campus_jugaad_transactions_${currentUser.username}`, JSON.stringify(transactions));
-    }
-  }, [transactions, currentUser]);
 
+  // --- 3. CHAT POLLING (Real Mode) ---
   useEffect(() => {
-    if (currentUser) {
-        if (activeQuest) {
-            localStorage.setItem(`campus_jugaad_active_${currentUser.username}`, JSON.stringify(activeQuest));
-        } else {
-            localStorage.removeItem(`campus_jugaad_active_${currentUser.username}`);
-        }
+    let interval: any;
+    if (chatMode === 'real' && chatQuestId) {
+        const fetchMessages = async () => {
+            try {
+                const res = await fetch(`http://localhost:5000/api/quests/${chatQuestId}/messages`);
+                const data = await res.json();
+                setChatMessages(data.map((m: any) => ({
+                    id: m._id,
+                    text: m.text,
+                    sender: m.sender === currentUser?.username ? 'user' : 'other',
+                    timestamp: m.timestamp
+                })));
+            } catch (e) {}
+        };
+        fetchMessages();
+        interval = setInterval(fetchMessages, 3000);
     }
-  }, [activeQuest, currentUser]);
+    return () => clearInterval(interval);
+  }, [chatMode, chatQuestId]);
 
 
   // --- ACTIONS ---
@@ -154,120 +182,6 @@ function AppContent() {
     setNotifications(prev => [newNotif, ...prev]);
   };
 
-  const handleLogin = (user: any) => {
-    const userWithXp = { ...user, xp: user.xp || 0 };
-    setCurrentUser(userWithXp);
-    localStorage.setItem("campus_jugaad_current_user", JSON.stringify(userWithXp));
-    showToast("success", `Welcome, ${user.name.split(' ')[0]}!`, "Let's get some tasks done.");
-  };
-
-  const handleGuestLogin = () => {
-    const guestUser = { 
-      name: "Guest Student", 
-      email: "guest@campus.edu", 
-      username: "GuestHero",
-      id: "guest-123",
-      xp: 0 
-    };
-    handleLogin(guestUser);
-  };
-
-  const handleLogout = () => {
-    setCurrentUser(null);
-    localStorage.removeItem("campus_jugaad_current_user");
-    setActiveTab("post");
-    setActiveQuest(null);
-    setActivityLog([]); 
-    setTransactions([]);
-    setIsChatOpen(false);
-  };
-
-  // --- QUEST DATA ---
-  const generateDynamicQuests = (): Quest[] => {
-    const now = new Date();
-    const formatDisplay = (addMinutes: number) => {
-      const d = new Date(now.getTime() + addMinutes * 60000);
-      return `Today, ${d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })}`;
-    };
-    const getIso = (addMinutes: number) => new Date(now.getTime() + addMinutes * 60000).toISOString();
-
-    return [
-      {
-        title: "Hold Canteen Line Spot",
-        description: "Stand in the lunch queue for me for 20 mins.",
-        reward: 40,
-        xp: 20,
-        urgency: "medium",
-        deadline: formatDisplay(120),
-        deadlineIso: getIso(120),
-        location: "Main Canteen",
-        otp: "0000", // Placeholder
-        postedBy: "RahulS",
-        status: "open"
-      },
-      {
-        title: "Deliver Lab Coat ASAP",
-        description: "Forgot my coat at Hostel 4. Need it at Chem Lab now!",
-        reward: 80,
-        xp: 40,
-        urgency: "urgent",
-        deadline: "In 30 Mins", 
-        deadlineIso: getIso(30),
-        location: "Hostel 4 → Chem Lab",
-        otp: "0000",
-        postedBy: "PriyaP",
-        status: "open"
-      },
-      {
-        title: "Tutoring Session: Calculus II",
-        description: "1-hour session to prep for quiz.",
-        reward: 90,
-        xp: 45,
-        urgency: "low",
-        deadline: "Tomorrow, 10:00 AM",
-        deadlineIso: new Date(now.getTime() + 24 * 60 * 60000).toISOString(),
-        location: "Library",
-        highlighted: true,
-        otp: "0000",
-        postedBy: "AmitK",
-        status: "open"
-      },
-      {
-        title: "Print Assignment",
-        description: "Print 10 pages and deliver to Block A, Room 204.",
-        reward: 30,
-        xp: 15,
-        urgency: "medium",
-        deadline: formatDisplay(180),
-        deadlineIso: getIso(180),
-        location: "Block A",
-        otp: "0000",
-        postedBy: "SnehaG",
-        status: "open"
-      },
-    ];
-  };
-
-  const [quests, setQuests] = useState<Quest[]>([]);
-
-// Load Quests from Backend
-useEffect(() => {
-  const fetchQuests = async () => {
-    try {
-      const res = await fetch('http://localhost:5000/api/quests');
-      const data = await res.json();
-      setQuests(data);
-    } catch (err) {
-      console.error("Failed to load quests:", err);
-    }
-  };
-
-  fetchQuests();
-  // Poll for updates every 5 seconds (Real-time-ish!)
-  const interval = setInterval(fetchQuests, 5000);
-  return () => clearInterval(interval);
-}, []);
-
   const addTransaction = (type: "credit" | "debit", description: string, amount: number) => {
     const newTxn: Transaction = {
       id: `TXN-${Math.floor(Math.random() * 10000)}`,
@@ -280,105 +194,225 @@ useEffect(() => {
     setTransactions(prev => [newTxn, ...prev]);
   };
 
-  // --- ACTIONS ---
+  const handleLogin = (user: any) => {
+    setCurrentUser(user);
+    setBalance(user.balance);
+    localStorage.setItem("campus_jugaad_current_user", JSON.stringify(user));
+    showToast("success", `Welcome, ${user.name.split(' ')[0]}!`, "Let's get some tasks done.");
+  };
+
+  const handleLogout = () => {
+    setCurrentUser(null);
+    localStorage.removeItem("campus_jugaad_current_user");
+    setActiveTab("post");
+    setActiveQuest(null);
+    setIsChatOpen(false);
+  };
+
+  // --- API ACTIONS (The Brain) ---
 
   const addQuest = async (newQuestData: any) => {
-    // 1. Client-side check (Optional, but makes UI faster)
     if (balance < newQuestData.reward) {
       showToast("error", "Insufficient Balance", "Add money to your wallet.");
       return;
     }
 
     try {
-      // 2. Send to Backend
       const response = await fetch('http://localhost:5000/api/quests', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           ...newQuestData,
-          deadlineIso: new Date(new Date().getTime() + 60 * 60000).toISOString(), // Default 1 hour
           postedBy: currentUser.username
         }),
       });
 
       const data = await response.json();
 
-      if (!response.ok) {
-        // This catches the Backend's "Insufficient balance" error
-        showToast("error", "Error", data.message || "Failed to post quest");
-        return;
+      if (response.ok) {
+        setBalance(prev => prev - newQuestData.reward); 
+        addTransaction("debit", `Escrow: ${data.title}`, newQuestData.reward);
+        addNotification("Quest Posted", `"${data.title}" is live!`);
+        fetchQuests(); // Refresh list
+        setActiveTab("find");
+      } else {
+        showToast("error", "Error", data.message);
       }
-
-      // 3. Success! Update UI
-      setBalance(prev => prev - newQuestData.reward); 
-      
-      // ADDED THIS BACK: Update visual history
-      addTransaction("debit", `Escrow: ${data.title}`, newQuestData.reward);
-      
-      addNotification("Quest Posted", `"${data.title}" is live!`);
-      
-      // Refresh list with new data from server
-      setQuests(prev => [data, ...prev]);
-      setActiveTab("find");
-      
     } catch (error) {
       showToast("error", "Network Error", "Is the backend running?");
     }
   };
 
-  const handleAcceptQuest = (quest: Quest) => {
-    if (activeQuest) {
-      showToast("error", "One Quest at a Time!", "Finish your current task first.");
-      return;
+  // 1. ADD THIS FUNCTION
+const fetchTransactions = async () => {
+  if (!currentUser) return;
+  try {
+    const res = await fetch(`http://localhost:5000/api/transactions?username=${currentUser.username}`);
+    if (res.ok) {
+      const data = await res.json();
+      setTransactions(data.map((t: any) => ({
+        id: t._id,
+        type: t.type,
+        description: t.description,
+        amount: t.amount,
+        status: t.status,
+        date: new Date(t.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      })));
     }
+  } catch (e) { console.error("Txn fetch error", e); }
+};
 
-    // --- SECURITY UPGRADE: GENERATE OTP NOW ---
-    const secureOTP = Math.floor(1000 + Math.random() * 9000).toString();
+// 2. UPDATE YOUR USE EFFECT to call it
+useEffect(() => {
+  if (currentUser) {
+    fetchCurrentUser(); // Your existing user sync
+    fetchTransactions(); // <--- ADD THIS LINE
+    const interval = setInterval(() => {
+        fetchCurrentUser();
+        fetchTransactions(); // <--- ADD THIS LINE
+    }, 5000);
+    return () => clearInterval(interval);
+  }
+}, [currentUser?.username]);
 
-    const questWithOtp = { 
-      ...quest, 
-      otp: secureOTP // Fresh OTP assigned on acceptance
-    };
 
-    setActiveQuest(questWithOtp);
-    addNotification("Quest Accepted", `You accepted "${quest.title}". Good luck!`);
-    setIsChatOpen(true);
+  const handleAcceptQuest = async (quest: Quest) => {
+  // ... existing checks ...
+  try {
+    const res = await fetch(`http://localhost:5000/api/quests/${quest._id}/accept`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heroUsername: currentUser.username })
+    });
+    const data = await res.json();
+
+    if (res.ok) {
+      setActiveQuest(data.quest);
+      
+      // 👇 FORCE REAL CHAT MODE HERE
+      setChatQuestId(data.quest._id);
+      setChatMode('real'); 
+      setChatMessages([]); // Clear any old AI messages
+      setIsChatOpen(true);
+      
+      fetchQuests();
+    }
+    // ... error handling ...
+  } catch (err) { /* ... */ }
+};
+
+  const handleCompleteQuest = async (otpInput: string) => {
+    if (!activeQuest || !currentUser) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/quests/${activeQuest._id}/complete`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ otp: otpInput, heroUsername: currentUser.username })
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        const reward = activeQuest.reward;
+        setBalance(prev => prev + reward);
+        addTransaction("credit", `Reward: ${activeQuest.title}`, reward);
+        
+        // Update Local User XP
+        setCurrentUser((prev: any) => ({ ...prev, xp: (prev.xp || 0) + activeQuest.xp }));
+        
+        addNotification("Quest Completed!", `You earned ₹${reward}!`, "success");
+        showToast("success", "Quest Completed!", `₹${reward} added.`);
+        
+        setActiveQuest(null);
+        setIsChatOpen(false);
+        fetchQuests();
+      } else {
+        showToast("error", "Invalid OTP", "Ask the Task Master for the correct code.");
+      }
+    } catch (err) {
+      showToast("error", "Error", "Connection failed");
+    }
   };
 
-  const handleCompleteQuest = () => {
-    if (activeQuest && currentUser) {
-      const reward = activeQuest.reward;
-      const xp = activeQuest.xp;
-      
-      setBalance(prev => prev + reward);
-      addTransaction("credit", `Reward: ${activeQuest.title}`, reward);
-      setActivityLog(prev => [activeQuest, ...prev]);
-      
-      // Mark as completed in global list (Removes from Find tab)
-      const updatedQuests = quests.map(q => 
-        q.title === activeQuest.title ? { ...q, status: "completed" as const } : q
-      );
-      setQuests(updatedQuests);
-      localStorage.setItem("campus_jugaad_quests", JSON.stringify(updatedQuests));
+  const handleDropQuest = async () => {
+    if (!activeQuest || !currentUser) return;
+    if (!confirm("Give up on this quest?")) return;
 
-      // Update User XP
-      const updatedUser = { ...currentUser, xp: (currentUser.xp || 0) + xp };
-      setCurrentUser(updatedUser);
-      localStorage.setItem("campus_jugaad_current_user", JSON.stringify(updatedUser));
-      
-      addNotification("Quest Completed!", `You earned ₹${reward} and ${xp} XP!`, "success");
-      showToast("success", "Quest Completed!", `₹${reward} added.`);
-      
-      setActiveQuest(null);
-      setIsChatOpen(false);
-    }
+    try {
+      const res = await fetch(`http://localhost:5000/api/quests/${activeQuest._id}/resign`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ heroUsername: currentUser.username })
+      });
+
+      if (res.ok) {
+        setActiveQuest(null);
+        fetchQuests();
+        showToast("info", "Quest Dropped", "You resigned from the quest.");
+      }
+    } catch (err) { console.error(err); }
   };
+
+  const handleCancelQuest = async (questId: string) => {
+    if (!confirm("Delete this quest? Funds will be refunded.")) return;
+
+    try {
+      const res = await fetch(`http://localhost:5000/api/quests/${questId}`, {
+        method: 'DELETE',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username: currentUser.username })
+      });
+
+      if (res.ok) {
+        fetchQuests();
+        fetchCurrentUser(); // Get money back
+        showToast("success", "Cancelled", "Quest deleted and money refunded.");
+      }
+    } catch (err) { console.error(err); }
+  };
+
+  const handleRateHero = async (questId: string, rating: number) => {
+    try {
+        await fetch(`http://localhost:5000/api/quests/${questId}/rate`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ rating })
+        });
+        fetchQuests();
+        showToast("success", "Rated", "Feedback submitted!");
+    } catch(err) { console.error(err); }
+  };
+
+  const handleSendMessage = async (text: string) => {
+  // 👇 STRICT CHECK: If we have an active quest ID, it MUST be real chat
+  if (chatMode === 'real' || (activeQuest && chatMode !== 'ai')) {
+      const targetId = chatQuestId || activeQuest?._id;
+      
+      if (targetId) {
+        await fetch(`http://localhost:5000/api/quests/${targetId}/messages`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ sender: currentUser.username, text })
+        });
+        // Optimistic Update
+        setChatMessages(prev => [...prev, { text, sender: 'user', timestamp: new Date() }]);
+      }
+  } 
+  // ONLY use AI if explicitly in AI mode
+  else if (chatMode === 'ai') {
+      setChatMessages(prev => [...prev, { text, sender: 'user', timestamp: new Date() }]);
+      setTimeout(() => {
+          setChatMessages(prev => [...prev, { text: "I am the Support Bot. For quest chats, please accept a quest!", sender: 'ai', timestamp: new Date() }]);
+      }, 1000);
+  }
+};
 
   const handleWithdraw = (amount: number) => {
+    // Mock Withdraw (Frontend only for now)
     if (balance >= amount) {
       setBalance(prev => prev - amount);
       addTransaction("debit", "Withdrawal", amount);
-      addNotification("Withdrawal", `₹${amount} transferred to bank.`);
       showToast("success", "Withdrawal Successful", `₹${amount} transferred.`);
     } else {
       showToast("error", "Insufficient Funds", "Not enough balance.");
@@ -386,17 +420,18 @@ useEffect(() => {
   };
 
   const handleAddMoney = (amount: number) => {
+    // Mock Add Money
     setBalance(prev => prev + amount);
     addTransaction("credit", "Wallet Recharge", amount);
-    addNotification("Money Added", `₹${amount} added to wallet.`, "success");
     showToast("success", "Money Added", `₹${amount} added.`);
   };
 
   // --- RENDER ---
-  if (!currentUser) return <AuthPage onLogin={handleLogin} onGuest={handleGuestLogin} />;
+  if (!currentUser) return <AuthPage onLogin={handleLogin} onGuest={() => handleLogin({ name: "Guest", username: "guest", balance: 500 })} />;
 
   return (
     <div className="min-h-screen bg-[var(--campus-bg)] relative overflow-x-hidden transition-colors duration-300">
+      {/* Background Glow */}
       <div className="dark:block hidden fixed inset-0 pointer-events-none">
         <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-[#2D7FF9]/20 rounded-full blur-[120px] animate-pulse"></div>
         <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-[#9D4EDD]/20 rounded-full blur-[120px] animate-pulse" style={{ animationDelay: '1s' }}></div>
@@ -425,21 +460,35 @@ useEffect(() => {
 
         {activeTab === "post" && <TaskMasterView addQuest={addQuest} balance={balance} />}
         
-        {/* Pass filtered quests (exclude completed) */}
         {activeTab === "find" && (
           <HeroView 
-            quests={quests.filter(q => q.status !== "completed")} 
+            // FILTER: Only Open Quests
+            quests={quests.filter(q => q.status === "open")} 
             onAcceptQuest={handleAcceptQuest} 
             activeQuest={activeQuest} 
+            currentUser={currentUser}
           />
         )}
         
         {activeTab === "dashboard" && (
             <DashboardView 
                 currentUser={currentUser} 
-                activeQuest={activeQuest}
+                // Logic: Active quest I accepted OR Active quest I posted
+                activeQuest={activeQuest || quests.find(q => q.postedBy === currentUser.username && q.status === 'active')}
+                // Logic: My History (Posted or Done)
                 activityLog={activityLog}
-                postedQuests={quests.filter(q => q.postedBy === currentUser.username)}
+                // Logic: Quests I posted that are still OPEN
+                postedQuests={quests.filter(q => q.postedBy === currentUser.username && q.status === 'open')}
+                
+                // PASS NEW HANDLERS
+                onCancelQuest={handleCancelQuest}
+                onRateHero={handleRateHero}
+                onOpenChat={(quest: any) => {
+                    setChatQuestId(quest._id);
+                    setChatMode('real'); // <--- FORCE REAL MODE
+                    setChatMessages([]);
+                    setIsChatOpen(true);
+                }}
             />
         )}
         
@@ -449,26 +498,44 @@ useEffect(() => {
         <BottomNavigation activeTab={activeTab} onTabChange={setActiveTab} />
       </div>
 
+      {/* Support Bot Button */}
+      <div className="fixed bottom-24 right-6 z-40 md:bottom-12">
+        <button 
+            onClick={() => { setChatMode('ai'); setChatMessages([]); setIsChatOpen(true); }}
+            className="bg-white/10 backdrop-blur-md border border-white/20 p-3 rounded-full shadow-lg hover:bg-white/20 transition-all text-[var(--campus-text-primary)]"
+            title="Support Bot"
+        >
+            <HelpCircle className="w-6 h-6" />
+        </button>
+      </div>
+
       {activeQuest && (
         <ActiveQuestBar 
           quest={activeQuest}
           onComplete={handleCompleteQuest}
-          onDismiss={() => {}} 
+          onDismiss={handleDropQuest} // Reuse dismiss for "Drop"
           isChatOpen={isChatOpen}
-          onChatToggle={() => setIsChatOpen(!isChatOpen)}
+          onChatToggle={() => {
+              setChatQuestId(activeQuest._id || activeQuest.id || null);
+              setChatMode('real');
+              setIsChatOpen(!isChatOpen);
+          }}
         />
       )}
 
-      {activeQuest && (
-        <ChatInterface 
-          isOpen={isChatOpen}
-          onClose={() => setIsChatOpen(false)}
-          questTitle={activeQuest.title}
-          questLocation={activeQuest.location}
-          questReward={activeQuest.reward}
-          secretOTP={activeQuest.otp} // This is now the Fresh Secure OTP
-        />
-      )}
+      {/* Reused Chat Interface */}
+      <ChatInterface 
+        isOpen={isChatOpen}
+        onClose={() => setIsChatOpen(false)}
+        title={chatMode === 'ai' ? "Campus Support Bot" : `Chat: ${activeQuest?.title || 'Quest'}`}
+        messages={chatMessages}
+        onSendMessage={handleSendMessage}
+        // Legacy props for UI fallback
+        questTitle={activeQuest?.title || ""}
+        questLocation={activeQuest?.location || ""}
+        questReward={activeQuest?.reward || 0}
+        secretOTP={activeQuest?.otp || ""} 
+      />
 
       <MobileMenu
         isOpen={showMobileMenu}

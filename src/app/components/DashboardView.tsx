@@ -1,13 +1,29 @@
-import { Clock, CheckCircle2, AlertCircle, Package } from "lucide-react";
+import { Clock, CheckCircle2, AlertCircle, Package, Trash2, Star, MessageSquare } from "lucide-react";
+import { useState } from "react";
+import { Button } from "./ui/button";
 
 interface DashboardViewProps {
   currentUser: any;
   activeQuest: any;
   activityLog: any[];
   postedQuests: any[];
+  onCancelQuest: (id: string) => void;
+  onRateHero: (questId: string, rating: number) => void;
+  onOpenChat: (quest: any) => void; // For active quests
 }
 
-export function DashboardView({ currentUser, activeQuest, activityLog, postedQuests }: DashboardViewProps) {
+export function DashboardView({ 
+  currentUser, 
+  activeQuest, 
+  activityLog, 
+  postedQuests,
+  onCancelQuest,
+  onRateHero,
+  onOpenChat
+}: DashboardViewProps) {
+  
+  const [ratingModalOpen, setRatingModalOpen] = useState<string | null>(null);
+
   return (
     <div className="min-h-screen pt-24 px-4 pb-20 bg-[var(--campus-bg)]">
       <div className="max-w-[1200px] mx-auto">
@@ -27,7 +43,7 @@ export function DashboardView({ currentUser, activeQuest, activityLog, postedQue
            <StatCard label="Total XP" value={currentUser?.xp || 0} icon="⚡" color="bg-yellow-500/20 text-yellow-500" />
            <StatCard label="Tasks Done" value={activityLog.length} icon="✅" color="bg-green-500/20 text-green-500" />
            <StatCard label="Posted" value={postedQuests.length} icon="📢" color="bg-blue-500/20 text-blue-500" />
-           <StatCard label="Rating" value="5.0" icon="⭐" color="bg-orange-500/20 text-orange-500" />
+           <StatCard label="Rating" value={currentUser?.rating || "5.0"} icon="⭐" color="bg-orange-500/20 text-orange-500" />
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -36,15 +52,32 @@ export function DashboardView({ currentUser, activeQuest, activityLog, postedQue
            <div className="space-y-6">
               <h2 className="text-xl font-bold text-[var(--campus-text-primary)]">Current Status</h2>
               
-              {/* Active Quest Card */}
+              {/* Active Quest Card (WITH OTP) */}
               {activeQuest ? (
                  <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/40 p-5 rounded-2xl relative overflow-hidden">
                     <div className="absolute top-2 right-2 text-xs font-bold bg-[#2D7FF9] text-white px-2 py-1 rounded">ACTIVE</div>
                     <h3 className="font-bold text-lg text-[var(--campus-text-primary)] mb-1">{activeQuest.title}</h3>
                     <p className="text-sm text-[var(--campus-text-secondary)] mb-3">{activeQuest.description}</p>
-                    <div className="flex items-center gap-4 text-sm">
-                       <span className="flex items-center gap-1 text-green-400"><Clock className="w-4 h-4"/> In Progress</span>
-                       <span className="font-mono text-[var(--campus-text-primary)]">Reward: ₹{activeQuest.reward}</span>
+                    
+                    {/* OTP SECTION */}
+                    <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
+                        <span className="text-sm text-[var(--campus-text-secondary)]">Share OTP with Hero:</span>
+                        <span className="font-mono text-xl font-bold text-[#00F5D4] tracking-widest">{activeQuest.otp}</span>
+                    </div>
+
+                    <div className="flex items-center justify-between text-sm">
+                        <div className="flex items-center gap-1 text-green-400">
+                            <Clock className="w-4 h-4"/> In Progress
+                        </div>
+                        {/* CHAT BUTTON */}
+                        <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="text-[var(--campus-text-primary)] hover:bg-white/10"
+                            onClick={() => onOpenChat(activeQuest)}
+                        >
+                            <MessageSquare className="w-4 h-4 mr-2" /> Chat
+                        </Button>
                     </div>
                  </div>
               ) : (
@@ -53,18 +86,29 @@ export function DashboardView({ currentUser, activeQuest, activityLog, postedQue
                  </div>
               )}
 
-              {/* Posted Quests List */}
+              {/* Posted Quests List (WITH CANCEL) */}
               <div>
                  <h3 className="text-sm font-bold text-[var(--campus-text-secondary)] uppercase tracking-wider mb-3">Posted by You</h3>
                  {postedQuests.length > 0 ? (
                     <div className="space-y-3">
                        {postedQuests.map((q, i) => (
-                          <div key={i} className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] p-4 rounded-xl flex justify-between items-center">
+                          <div key={i} className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] p-4 rounded-xl flex justify-between items-center group">
                              <div>
                                 <p className="font-medium text-[var(--campus-text-primary)]">{q.title}</p>
                                 <p className="text-xs text-[var(--campus-text-secondary)]">{q.deadline}</p>
                              </div>
-                             <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded">PENDING</span>
+                             
+                             <div className="flex items-center gap-2">
+                                <span className="text-xs bg-yellow-500/20 text-yellow-500 px-2 py-1 rounded">PENDING</span>
+                                {/* CANCEL BUTTON */}
+                                <button 
+                                    onClick={() => onCancelQuest(q._id)}
+                                    className="p-2 text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                                    title="Cancel Quest"
+                                >
+                                    <Trash2 className="w-4 h-4" />
+                                </button>
+                             </div>
                           </div>
                        ))}
                     </div>
@@ -74,24 +118,42 @@ export function DashboardView({ currentUser, activeQuest, activityLog, postedQue
               </div>
            </div>
 
-           {/* Right Column: History */}
+           {/* Right Column: History (WITH RATINGS) */}
            <div>
               <h2 className="text-xl font-bold text-[var(--campus-text-primary)] mb-4">Recent Activity</h2>
               <div className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] rounded-2xl overflow-hidden">
                  {activityLog.length > 0 ? (
                     <div className="divide-y divide-[var(--campus-border)]">
                        {activityLog.map((quest, i) => (
-                          <div key={i} className="p-4 flex items-center justify-between hover:bg-[var(--campus-surface)] transition-colors">
-                             <div className="flex items-center gap-3">
-                                <div className="bg-green-500/10 p-2 rounded-full text-green-500">
-                                   <CheckCircle2 className="w-5 h-5" />
+                          <div key={i} className="p-4 flex flex-col gap-2 hover:bg-[var(--campus-surface)] transition-colors">
+                             <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                   <div className="bg-green-500/10 p-2 rounded-full text-green-500">
+                                      <CheckCircle2 className="w-5 h-5" />
+                                   </div>
+                                   <div>
+                                      <p className="font-medium text-[var(--campus-text-primary)]">{quest.title}</p>
+                                      <p className="text-xs text-[var(--campus-text-secondary)]">Hero: {quest.assignedTo}</p>
+                                   </div>
                                 </div>
-                                <div>
-                                   <p className="font-medium text-[var(--campus-text-primary)]">{quest.title}</p>
-                                   <p className="text-xs text-[var(--campus-text-secondary)]">Completed</p>
-                                </div>
+                                <span className="font-bold text-[#00F5D4]">+₹{quest.reward}</span>
                              </div>
-                             <span className="font-bold text-[#00F5D4]">+₹{quest.reward}</span>
+                             
+                             {/* RATING BUTTON */}
+                             {quest.status === 'completed' && !quest.ratingGiven && quest.postedBy === currentUser?.username && (
+                                <div className="flex items-center justify-end gap-2 mt-2">
+                                    <span className="text-xs text-[var(--campus-text-secondary)]">Rate Hero:</span>
+                                    {[1, 2, 3, 4, 5].map((star) => (
+                                        <button 
+                                            key={star}
+                                            onClick={() => onRateHero(quest._id, star)}
+                                            className="text-yellow-500 hover:scale-125 transition-transform"
+                                        >
+                                            <Star className="w-4 h-4 fill-current" />
+                                        </button>
+                                    ))}
+                                </div>
+                             )}
                           </div>
                        ))}
                     </div>
@@ -104,7 +166,6 @@ export function DashboardView({ currentUser, activeQuest, activityLog, postedQue
               </div>
            </div>
         </div>
-
       </div>
     </div>
   );
