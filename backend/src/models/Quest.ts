@@ -6,7 +6,7 @@ const QuestSchema = new mongoose.Schema({
   reward: { type: Number, required: true },
   xp: { type: Number, required: true },
   urgency: { type: String, enum: ['low', 'medium', 'urgent'], default: 'medium' },
-  location: { type: String, required: true },
+  location: { type: String, required: false },
   deadline: { type: String, required: true },
   deadlineIso: { type: Date, required: true },
   postedBy: { type: String, required: true },
@@ -16,5 +16,6 @@ const QuestSchema = new mongoose.Schema({
   // 👇 NEW: Check if rating was given
   ratingGiven: { type: Boolean, default: false }
 }, { timestamps: true });
+
 
 export const Quest = mongoose.model('Quest', QuestSchema);
