@@ -92,7 +92,7 @@ function AppContent() {
     }
   }, []);
 
-  // FIX ISSUE 1: Load Notifications from Storage
+  // Load Notifications
   useEffect(() => {
     const savedNotifs = localStorage.getItem("campus_notifications");
     if (savedNotifs) {
@@ -100,13 +100,13 @@ function AppContent() {
     }
   }, []);
 
-  // FIX ISSUE 1: Save Notifications on Change
+  // Save Notifications
   useEffect(() => {
     localStorage.setItem("campus_notifications", JSON.stringify(notifications));
   }, [notifications]);
 
 
-  // Sync Data
+  // Sync Data (User, Wallet, Quests)
   const fetchCurrentUser = async () => {
     if(!currentUser) return;
     try {
@@ -168,6 +168,7 @@ function AppContent() {
     }
   };
 
+  // Main Polling Loop
   useEffect(() => {
     if(currentUser) {
         fetchCurrentUser();
@@ -181,6 +182,37 @@ function AppContent() {
         return () => clearInterval(interval);
     }
   }, [currentUser?.username]);
+
+
+  // --- RESTORED: CHAT POLLING (THIS WAS MISSING) ---
+  useEffect(() => {
+    let interval: any;
+    // Check if we are in real mode and have a valid Quest ID
+    if (chatMode === 'real' && chatQuestId) {
+        const fetchMessages = async () => {
+            try {
+                const res = await fetch(`/api/quests/${chatQuestId}/messages`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setChatMessages(data.map((m: any) => ({
+                        id: m._id,
+                        text: m.text,
+                        sender: m.sender === currentUser?.username ? 'user' : 'other',
+                        timestamp: m.timestamp
+                    })));
+                }
+            } catch (e) { 
+                console.error("Polling error", e); 
+            }
+        };
+        
+        // Run immediately, then every 3 seconds
+        fetchMessages();
+        interval = setInterval(fetchMessages, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [chatMode, chatQuestId, currentUser]);
+
 
   // --- ACTIONS ---
 
@@ -206,7 +238,7 @@ function AppContent() {
   const handleLogout = () => {
     setCurrentUser(null);
     localStorage.removeItem("campus_jugaad_current_user");
-    localStorage.removeItem("campus_notifications"); // Optional: Clear notifs on logout
+    localStorage.removeItem("campus_notifications"); 
     setActiveTab("post");
     setActiveQuest(null);
     setIsChatOpen(false);
@@ -232,10 +264,9 @@ function AppContent() {
 
       if (response.ok) {
         setBalance(prev => prev - newQuestData.reward); 
-        // addTransaction removed from here because backend handles it now
         addNotification("Quest Posted", `"${data.title}" is live!`);
         fetchQuests(); 
-        fetchTransactions(); // Update txns
+        fetchTransactions(); 
         setActiveTab("find");
       } else {
         showToast("error", "Error", data.message);
@@ -344,8 +375,10 @@ function AppContent() {
   };
 
   const handleSendMessage = async (text: string) => {
+    // Only send if in real mode or we have an active quest
     if (chatMode === 'real' || (activeQuest && chatMode !== 'ai')) {
         const targetId = chatQuestId || activeQuest?._id;
+        
         if (targetId) {
           try {
             const response = await fetch(`/api/quests/${targetId}/messages`, {
@@ -353,6 +386,8 @@ function AppContent() {
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ sender: currentUser.username, text })
             });
+
+            // Only update UI if server says "OK"
             if (response.ok) {
                 const savedMessage = await response.json();
                 setChatMessages(prev => [...prev, { 
@@ -362,9 +397,12 @@ function AppContent() {
                     timestamp: savedMessage.timestamp 
                 }]);
             }
-          } catch(err) { console.error(err); }
+          } catch(err) {
+            console.error("Failed to send", err);
+          }
         }
     } 
+    // AI Fallback
     else if (chatMode === 'ai') {
         setChatMessages(prev => [...prev, { text, sender: 'user', timestamp: new Date() }]);
         setTimeout(() => {
@@ -373,7 +411,6 @@ function AppContent() {
     }
   };
 
-  // FIX ISSUE 2: CONNECTED TO BACKEND
   const handleWithdraw = async (amount: number) => {
     try {
         const res = await fetch('/api/transactions/withdraw', {
@@ -384,8 +421,8 @@ function AppContent() {
         
         if (res.ok) {
             const data = await res.json();
-            setBalance(data.balance); // Update Local Immediately
-            fetchTransactions(); // Refresh List
+            setBalance(data.balance); 
+            fetchTransactions(); 
             showToast("success", "Withdrawal Successful", `₹${amount} transferred.`);
         } else {
             showToast("error", "Withdrawal Failed", "Insufficient funds or server error.");
@@ -393,7 +430,6 @@ function AppContent() {
     } catch (e) { console.error(e); }
   };
 
-  // FIX ISSUE 2: CONNECTED TO BACKEND
   const handleAddMoney = async (amount: number) => {
     try {
         const res = await fetch('/api/transactions/add', {
@@ -404,8 +440,8 @@ function AppContent() {
         
         if (res.ok) {
             const data = await res.json();
-            setBalance(data.balance); // Update Local Immediately
-            fetchTransactions(); // Refresh List
+            setBalance(data.balance); 
+            fetchTransactions(); 
             showToast("success", "Money Added", `₹${amount} added.`);
             addNotification("Wallet Update", `Recharged wallet with ₹${amount}`, "success");
         }
