@@ -59,11 +59,21 @@ export function DashboardView({
                     <h3 className="font-bold text-lg text-[var(--campus-text-primary)] mb-1">{activeQuest.title}</h3>
                     <p className="text-sm text-[var(--campus-text-secondary)] mb-3">{activeQuest.description}</p>
                     
-                    {/* OTP SECTION */}
-                    <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
-                        <span className="text-sm text-[var(--campus-text-secondary)]">Share OTP with Hero:</span>
-                        <span className="font-mono text-xl font-bold text-[#00F5D4] tracking-widest">{activeQuest.otp}</span>
-                    </div>
+                    {/* Only show OTP if I am the POSTER */}
+{currentUser.username === activeQuest.postedBy ? (
+    <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
+        <span className="text-sm text-[var(--campus-text-secondary)]">Share OTP with Hero:</span>
+        <span className="font-mono text-xl font-bold text-[#00F5D4] tracking-widest">
+            {activeQuest.otp || "******"} 
+        </span>
+    </div>
+) : (
+    <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-lg mb-3">
+        <p className="text-sm text-yellow-500 text-center">
+            Ask the <strong>Task Master</strong> for the OTP to complete this quest.
+        </p>
+    </div>
+)}
 
                     <div className="flex items-center justify-between text-sm">
                         <div className="flex items-center gap-1 text-green-400">
