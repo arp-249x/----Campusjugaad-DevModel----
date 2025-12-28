@@ -487,8 +487,14 @@ useEffect(() => {
         {activeTab === "dashboard" && (
             <DashboardView 
                 currentUser={currentUser} 
-                // Logic: Active quest I accepted OR Active quest I posted
-                activeQuest={activeQuest || quests.find(q => q.postedBy === currentUser.username && q.status === 'active')}
+                // 👇 FIXED: Now checks if I posted it OR if I am the Hero (assignedTo)
+                activeQuest={
+                  activeQuest || 
+                  quests.find(q => 
+                    (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) 
+                    && q.status === 'active'
+                  )
+                }
                 // Logic: My History (Posted or Done)
                 activityLog={activityLog}
                 // Logic: Quests I posted that are still OPEN
@@ -499,7 +505,7 @@ useEffect(() => {
                 onRateHero={handleRateHero}
                 onOpenChat={(quest: any) => {
                     setChatQuestId(quest._id);
-                    setChatMode('real'); // <--- FORCE REAL MODE
+                    setChatMode('real'); 
                     setChatMessages([]);
                     setIsChatOpen(true);
                 }}
