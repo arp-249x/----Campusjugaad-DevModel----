@@ -1,11 +1,11 @@
 import { Quest } from '../models/Quest';
 import { User } from '../models/User';
+import { Transaction } from '../models/Transaction'; // Import this
 
 export const checkExpiredQuests = async () => {
   try {
     const now = new Date();
     
-    // 1. Find quests that are OPEN or ACTIVE but passed their deadline
     const expiredQuests = await Quest.find({
       status: { $in: ['open', 'active'] },
       deadlineIso: { $lt: now }
@@ -13,21 +13,26 @@ export const checkExpiredQuests = async () => {
 
     if (expiredQuests.length === 0) return;
 
-    console.log(`Checking Quests... Found ${expiredQuests.length} expired items.`);
-
-    // 2. Process Refunds
     for (const quest of expiredQuests) {
-      // Find the Task Master (Poster)
       const user = await User.findOne({ username: quest.postedBy });
       
       if (user) {
-        // REFUND THE MONEY
+        // 1. Refund Balance
         user.balance += quest.reward;
         await user.save();
-        console.log(`💸 Refunded ₹${quest.reward} to ${user.username} for "${quest.title}"`);
+
+        // 2. CREATE TRANSACTION RECORD (Fixes the issue)
+        await Transaction.create({
+            userId: user.username,
+            type: 'credit',
+            description: `Refund: ${quest.title} (Expired)`,
+            amount: quest.reward,
+            status: 'success'
+        });
+
+        console.log(`Refunded ${user.username} for ${quest.title}`);
       }
 
-      // Mark Quest as EXPIRED so we don't refund it again
       quest.status = 'expired';
       await quest.save();
     }

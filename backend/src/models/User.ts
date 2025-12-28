@@ -4,11 +4,14 @@ const UserSchema = new mongoose.Schema({
   name: { type: String, required: true },
   username: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true }, // In real apps, we hash this!
+  password: { type: String, required: true },
   dob: { type: String, required: true },
   xp: { type: Number, default: 0 },
-  balance: { type: Number, default: 450 }, // Starting balance
-  joinedAt: { type: Date, default: Date.now }
+  balance: { type: Number, default: 450 },
+  joinedAt: { type: Date, default: Date.now },
+  // 👇 NEW: Rating Fields
+  rating: { type: Number, default: 5.0 }, // Average rating (starts at 5)
+  ratingCount: { type: Number, default: 0 }
 });
 
 export const User = mongoose.model('User', UserSchema);

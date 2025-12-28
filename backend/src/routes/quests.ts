@@ -1,22 +1,23 @@
 import express, { Request, Response } from 'express';
 import { Quest } from '../models/Quest';
 import { User } from '../models/User';
+import { Message } from '../models/Message';
+import { Transaction } from '../models/Transaction'; // Ensure this model exists
 
 const router = express.Router();
 
-// 1. GET OPEN QUESTS (Fixed: Only show 'open' quests)
+// 1. GET ALL QUESTS (Except Expired)
+// Used by Dashboard (shows active/completed) and Feed (filtered on frontend)
 router.get('/', async (req: Request, res: Response) => {
   try {
-    // FIX: Changed from { status: { $ne: 'completed' } } to { status: 'open' }
-    // This prevents 'active' (already taken) or 'expired' quests from clogging the feed.
-    const quests = await Quest.find({ status: 'open' }).sort({ createdAt: -1 });
+    const quests = await Quest.find({ status: { $ne: 'expired' } }).sort({ createdAt: -1 });
     res.json(quests);
   } catch (error) {
     res.status(500).json({ message: "Error fetching quests" });
   }
 });
 
-// 2. POST A NEW QUEST (Unchanged)
+// 2. POST A NEW QUEST (With Transaction)
 router.post('/', async (req: Request, res: Response) => {
   try {
     const { title, description, reward, xp, urgency, location, deadline, deadlineIso, postedBy } = req.body;
@@ -28,8 +29,18 @@ router.post('/', async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Insufficient balance" });
     }
 
+    // Deduct Balance
     user.balance -= reward;
     await user.save();
+
+    // RECORD TRANSACTION (Debit)
+    await Transaction.create({
+        userId: user.username,
+        type: 'debit',
+        description: `Escrow: ${title}`,
+        amount: reward,
+        status: 'success'
+    });
 
     const generatedOTP = Math.floor(1000 + Math.random() * 9000).toString();
     
@@ -54,26 +65,22 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// 3. ACCEPT QUEST ROUTE (New!)
-// This was missing! This is why you could accept your own quest.
+// 3. ACCEPT QUEST ROUTE
 router.put('/:id/accept', async (req: Request, res: Response) => {
   try {
-    const { heroUsername } = req.body; // The Hero accepting the quest
+    const { heroUsername } = req.body;
     const quest = await Quest.findById(req.params.id);
 
     if (!quest) return res.status(404).json({ message: "Quest not found" });
 
-    // CHECK: Is the quest already taken?
     if (quest.status !== 'open') {
       return res.status(400).json({ message: "Quest is no longer available" });
     }
 
-    // CHECK: Prevent Self-Acceptance
     if (quest.postedBy === heroUsername) {
       return res.status(403).json({ message: "You cannot accept your own quest!" });
     }
 
-    // Update Status
     quest.status = 'active';
     quest.assignedTo = heroUsername;
     await quest.save();
@@ -84,8 +91,7 @@ router.put('/:id/accept', async (req: Request, res: Response) => {
   }
 });
 
-// 4. COMPLETE QUEST ROUTE (New!)
-// This handles checking OTP and paying the Hero
+// 4. COMPLETE QUEST ROUTE (With Transaction)
 router.post('/:id/complete', async (req: Request, res: Response) => {
   try {
     const { otp, heroUsername } = req.body;
@@ -93,20 +99,9 @@ router.post('/:id/complete', async (req: Request, res: Response) => {
 
     if (!quest) return res.status(404).json({ message: "Quest not found" });
 
-    // Validate Status
-    if (quest.status !== 'active') {
-      return res.status(400).json({ message: "Quest is not active" });
-    }
-
-    // Validate Hero
-    if (quest.assignedTo !== heroUsername) {
-      return res.status(403).json({ message: "You are not the assigned hero" });
-    }
-
-    // Validate OTP
-    if (quest.otp !== otp) {
-      return res.status(400).json({ message: "Invalid OTP" });
-    }
+    if (quest.status !== 'active') return res.status(400).json({ message: "Quest is not active" });
+    if (quest.assignedTo !== heroUsername) return res.status(403).json({ message: "You are not the assigned hero" });
+    if (quest.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
 
     // PAY THE HERO
     const hero = await User.findOne({ username: heroUsername });
@@ -114,15 +109,123 @@ router.post('/:id/complete', async (req: Request, res: Response) => {
       hero.balance += quest.reward;
       hero.xp += quest.xp;
       await hero.save();
+
+      // RECORD TRANSACTION (Credit)
+      await Transaction.create({
+        userId: hero.username,
+        type: 'credit',
+        description: `Reward: ${quest.title}`,
+        amount: quest.reward,
+        status: 'success'
+      });
     }
 
-    // Mark Complete
     quest.status = 'completed';
     await quest.save();
 
     res.json({ message: "Quest completed! Funds transferred." });
   } catch (error) {
     res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 5. RESIGN QUEST (Hero gives up)
+router.put('/:id/resign', async (req: Request, res: Response) => {
+  try {
+    const { heroUsername } = req.body;
+    const quest = await Quest.findById(req.params.id);
+
+    if (!quest) return res.status(404).json({ message: "Quest not found" });
+    if (quest.assignedTo !== heroUsername) return res.status(403).json({ message: "Not assigned to you" });
+
+    quest.status = 'open';
+    quest.assignedTo = null;
+    await quest.save();
+
+    res.json({ message: "Quest resigned." });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 6. CANCEL QUEST (Task Master cancels -> Refund)
+router.delete('/:id', async (req: Request, res: Response) => {
+  try {
+    const { username } = req.body;
+    const quest = await Quest.findById(req.params.id);
+
+    if (!quest) return res.status(404).json({ message: "Quest not found" });
+    if (quest.postedBy !== username) return res.status(403).json({ message: "Not your quest" });
+    if (quest.status !== 'open') return res.status(400).json({ message: "Cannot cancel active quest" });
+
+    // REFUND
+    const user = await User.findOne({ username });
+    if (user) {
+      user.balance += quest.reward;
+      await user.save();
+
+      // RECORD TRANSACTION (Refund)
+      await Transaction.create({
+        userId: user.username,
+        type: 'credit',
+        description: `Refund: ${quest.title} (Cancelled)`,
+        amount: quest.reward,
+        status: 'success'
+      });
+    }
+
+    await Quest.findByIdAndDelete(req.params.id);
+    res.json({ message: "Quest cancelled & refunded." });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 7. RATE HERO
+router.post('/:id/rate', async (req: Request, res: Response) => {
+  try {
+    const { rating } = req.body;
+    const quest = await Quest.findById(req.params.id);
+
+    if (!quest || !quest.assignedTo) return res.status(404).json({ message: "Quest invalid" });
+    if (quest.ratingGiven) return res.status(400).json({ message: "Already rated" });
+
+    const hero = await User.findOne({ username: quest.assignedTo });
+    if (hero) {
+      const totalScore = (hero.rating * hero.ratingCount) + rating;
+      hero.ratingCount += 1;
+      hero.rating = parseFloat((totalScore / hero.ratingCount).toFixed(1));
+      await hero.save();
+    }
+
+    quest.ratingGiven = true;
+    await quest.save();
+
+    res.json({ message: "Rating submitted", newRating: hero?.rating });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// 8. SEND CHAT MESSAGE
+router.post('/:id/messages', async (req: Request, res: Response) => {
+  try {
+    const { sender, text } = req.body;
+    const newMessage = new Message({ questId: req.params.id, sender, text });
+    await newMessage.save();
+    res.json(newMessage);
+  } catch (error) {
+    res.status(500).json({ message: "Error sending message" });
+  }
+});
+
+// 9. GET CHAT MESSAGES
+router.get('/:id/messages', async (req: Request, res: Response) => {
+  try {
+    const messages = await Message.find({ questId: req.params.id }).sort({ timestamp: 1 });
+    res.json(messages);
+  } catch (error) {
+    res.status(500).json({ message: "Error fetching messages" });
   }
 });
 

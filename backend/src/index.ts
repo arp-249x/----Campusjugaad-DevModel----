@@ -1,6 +1,7 @@
 import authRoutes from './routes/auth';
 import questRoutes from './routes/quests';
 import { checkExpiredQuests } from './services/cron';
+import transactionRoutes from './routes/transactions';
 import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
@@ -33,6 +34,7 @@ connectDB();
 // Basic Route
 app.use('/api/auth', authRoutes);
 app.use('/api/quests', questRoutes);
+app.use('/api/transactions', transactionRoutes);
 app.get('/', (req: Request, res: Response) => {
   res.send('CampusJugaad API is running & DB Connected! 🚀');
 });
