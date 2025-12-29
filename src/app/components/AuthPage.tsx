@@ -266,7 +266,7 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
         <div className="mt-8 bg-yellow-500/10 border border-yellow-500/30 p-4 rounded-xl flex items-start gap-3 backdrop-blur-sm">
            <AlertTriangle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
            <p className="text-xs text-yellow-200/80 leading-relaxed text-left">
-             <span className="font-bold text-yellow-500">Note:</span> Guests button cannot post quests. <br/> Register/Login uses the new Backend Server!
+             <span className="font-bold text-yellow-500">Note:</span> Guest Account only for UI Testing. <br/> Register/Login for posting/accepting quests!
            </p>
         </div>
       </div>
@@ -274,5 +274,6 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
   );
 
 }
+
 
 
