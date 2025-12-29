@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { ThemeProvider } from "./components/ThemeContext";
 import { ToastProvider, useToast } from "./components/ToastContext";
 import { Navigation } from "./components/Navigation";
@@ -16,6 +16,7 @@ import { Footer } from "./components/Footer";
 import { ChatInterface } from "./components/ChatInterface";
 import { AuthPage } from "./components/AuthPage";
 import { HelpCircle } from "lucide-react";
+import { io } from "socket.io-client";
 
 // --- TYPES ---
 export interface Quest {
@@ -64,6 +65,9 @@ function AppContent() {
   const [chatMode, setChatMode] = useState<'none' | 'ai' | 'real'>('none');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatQuestId, setChatQuestId] = useState<string | null>(null);
+  // 👇 NEW VARIABLES FOR SOCKET FEATURES
+  const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
+  const [isOtherTyping, setIsOtherTyping] = useState(false);
   
   // --- APP STATE ---
   const [activeTab, setActiveTab] = useState("post");
@@ -184,36 +188,80 @@ function AppContent() {
   }
 }, [currentUser?.username]);
 
-
- // --- 3. CHAT POLLING (Real Mode) ---
+  const socketRef = useRef<any>(null);
+  // --- 3. SOCKET.IO CONNECTION (Real-Time) ---
   useEffect(() => {
-    let interval: any;
-    // Check if we are in real mode and have a valid Quest ID
-    if (chatMode === 'real' && chatQuestId) {
-        const fetchMessages = async () => {
-            try {
-                // 👇 FIX: Use relative path '/api' (No localhost!)
-                const res = await fetch(`/api/quests/${chatQuestId}/messages`);
-                if (res.ok) {
-                    const data = await res.json();
-                    setChatMessages(data.map((m: any) => ({
-                        id: m._id,
-                        text: m.text,
-                        sender: m.sender === currentUser?.username ? 'user' : 'other',
-                        timestamp: m.timestamp
-                    })));
-                }
-            } catch (e) { 
-                console.error("Polling error", e); 
-            }
-        };
+    // Only run if we are in 'real' chat mode and have a user + quest
+    if (chatMode === 'real' && chatQuestId && currentUser) {
         
-        // Run immediately, then every 3 seconds
-        fetchMessages();
-        interval = setInterval(fetchMessages, 3000);
+        // 1. CLOSE OLD CONNECTION (Safety Check)
+        if (socketRef.current) {
+            socketRef.current.disconnect();
+        }
+
+        // 2. CONNECT TO SERVER & SAVE TO REF
+        socketRef.current = io('http://localhost:5000', {
+            query: { username: currentUser.username }
+        });
+
+        // Create a local alias for cleaner code below
+        const socket = socketRef.current;
+
+        // 3. SETUP LISTENERS
+        socket.emit('join_quest', chatQuestId);
+
+        socket.on('receive_message', (incomingMsg: any) => {
+            setChatMessages(prev => {
+                if (prev.find(m => m.id === incomingMsg.id)) return prev;
+                return [...prev, {
+                    id: incomingMsg.id,
+                    text: incomingMsg.text,
+                    sender: incomingMsg.sender === currentUser.username ? 'user' : 'other',
+                    timestamp: incomingMsg.timestamp
+                }];
+            });
+        });
+
+        socket.on('other_typing', (isTyping: boolean) => {
+            setIsOtherTyping(isTyping);
+        });
+
+        socket.on('user_status', ({ username, status }: any) => {
+            if (username !== currentUser.username) {
+                setIsOtherUserOnline(status === 'online');
+            }
+        });
+        
+        // 4. FETCH HISTORY
+        fetch(`/api/quests/${chatQuestId}/messages`)
+            .then(res => res.json())
+            .then(data => {
+                setChatMessages(data.map((m: any) => ({
+                    id: m._id,
+                    text: m.text,
+                    sender: m.sender === currentUser.username ? 'user' : 'other',
+                    timestamp: m.timestamp
+                })));
+            })
+            .catch(err => console.error("Failed to fetch messages:", err));
     }
-    return () => clearInterval(interval);
-  }, [chatMode, chatQuestId, currentUser]);
+
+    // CLEANUP: Disconnect when component unmounts or chat closes
+    return () => {
+        if (socketRef.current) {
+            socketRef.current.disconnect();
+            socketRef.current = null;
+        }
+    };
+  }, [chatMode, chatQuestId, currentUser?.username]);
+
+  // --- 4. NEW FUNCTION: Handle Typing ---
+  const handleTyping = (isTyping: boolean) => {
+      // Use the existing socket connection to send the event
+      if (socketRef.current && chatQuestId) {
+          socketRef.current.emit('typing', { questId: chatQuestId, isTyping });
+      }
+  };
 
 
   // --- ACTIONS ---
@@ -447,20 +495,15 @@ useEffect(() => {
             });
 
             // Only update UI if server says "OK"
-            if (response.ok) {
-                const savedMessage = await response.json();
-                setChatMessages(prev => [...prev, { 
-                    id: savedMessage._id, 
-                    text: savedMessage.text, 
-                    sender: 'user', 
-                    timestamp: savedMessage.timestamp 
-                }]);
+            // Inside handleSendMessage
+            if (!response.ok) {
+                console.error("Failed to send message");
             }
           } catch(err) {
             console.error("Failed to send", err);
           }
         }
-    } 
+    }
     // AI Fallback
     else if (chatMode === 'ai') {
         setChatMessages(prev => [...prev, { text, sender: 'user', timestamp: new Date() }]);
@@ -620,6 +663,12 @@ useEffect(() => {
         title={chatMode === 'ai' ? "Campus Support Bot" : `Chat: ${activeQuest?.title || 'Quest'}`}
         messages={chatMessages}
         onSendMessage={handleSendMessage}
+        onTyping={handleTyping}
+        isOnline={isOtherUserOnline}
+        isTyping={isOtherTyping}
+        questId={chatQuestId || undefined}
+        currentUser={currentUser}
+
         // Legacy props for UI fallback
         questTitle={activeQuest?.title || ""}
         questLocation={activeQuest?.location || ""}

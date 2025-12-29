@@ -1,115 +1,140 @@
-import { Trophy, Medal, Crown, TrendingUp, User } from "lucide-react";
+import { Trophy, Medal, Crown, Star, TrendingUp, Shield, Zap } from "lucide-react";
+import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
+import { Progress } from "./ui/progress";
 
 interface LeaderboardViewProps {
-  currentUser?: any;
+  currentUser: any;
 }
 
+// Mock Data (In a real app, this would come from the backend)
+const LEADERBOARD_DATA = [
+  { id: 1, name: "Arjun K.", xp: 2400, rating: 4.9, quests: 42, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun" },
+  { id: 2, name: "Priya S.", xp: 1850, rating: 5.0, quests: 31, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya" },
+  { id: 3, name: "Rahul M.", xp: 1200, rating: 4.7, quests: 25, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Rahul" },
+  { id: 4, name: "Sneha R.", xp: 800, rating: 4.8, quests: 15, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Sneha" },
+  { id: 5, name: "Vikram S.", xp: 450, rating: 4.5, quests: 8, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Vikram" },
+];
+
 export function LeaderboardView({ currentUser }: LeaderboardViewProps) {
-  // REDUCED XP SCALES for better demo scaling
-  const baseUsers = [
-    { name: "Rahul Sharma", xp: 350, role: "Campus Legend", avatar: "RS" },
-    { name: "Priya Patel", xp: 280, role: "Task Master", avatar: "PP" },
-    { name: "Amit Kumar", xp: 210, role: "Rising Star", avatar: "AK" },
-    { name: "Sneha Gupta", xp: 150, role: "Hustler", avatar: "SG" },
-    { name: "Vikram Singh", xp: 90, role: "Rookie", avatar: "VS" },
-  ];
-
-  // Merge current user into list
-  let allUsers = [...baseUsers];
   
-  if (currentUser) {
-      const existingIndex = allUsers.findIndex(u => u.name === currentUser.name);
-      if (existingIndex !== -1) {
-          allUsers[existingIndex].xp = currentUser.xp; 
-      } else {
-          allUsers.push({
-              name: currentUser.name,
-              xp: currentUser.xp || 0,
-              role: "You",
-              avatar: currentUser.name.substring(0,2).toUpperCase()
-          });
-      }
-  }
+  // --- 1. GAMIFICATION ENGINE ---
+  const getRankInfo = (xp: number) => {
+    if (xp >= 2000) return { title: "Campus Legend", color: "text-yellow-400", icon: Crown, nextLimit: 5000 };
+    if (xp >= 1000) return { title: "Quest Master", color: "text-purple-400", icon: Trophy, nextLimit: 2000 };
+    if (xp >= 500) return { title: "Rising Star", color: "text-blue-400", icon: Star, nextLimit: 1000 };
+    return { title: "Novice Hero", color: "text-gray-400", icon: Shield, nextLimit: 500 };
+  };
 
-  // Sort by XP
-  allUsers.sort((a, b) => b.xp - a.xp);
+  const getBadges = (user: any) => {
+    const badges = [];
+    if (user.rating >= 4.9) badges.push({ icon: Star, color: "text-yellow-500", tooltip: "5-Star Service" });
+    if (user.quests >= 30) badges.push({ icon: Zap, color: "text-blue-500", tooltip: "Power User" });
+    if (user.xp > 2000) badges.push({ icon: Crown, color: "text-purple-500", tooltip: "Royalty" });
+    return badges;
+  };
 
-  // Find current user rank
-  const userRank = allUsers.findIndex(u => u.name === currentUser?.name) + 1;
+  // Merge Current User into list if they verify (Simulated for Demo)
+  // In real app, `currentUser` data would be fetched alongside leaderboard
+  const myRankInfo = getRankInfo(currentUser?.xp || 0);
+  const progressPercent = Math.min(100, ((currentUser?.xp || 0) / myRankInfo.nextLimit) * 100);
 
   return (
-    <div className="min-h-screen pt-20 px-4 pb-20 bg-[var(--campus-bg)]">
-      <div className="max-w-4xl mx-auto">
+    <div className="min-h-screen pt-24 px-4 pb-24 bg-[var(--campus-bg)]">
+      <div className="max-w-2xl mx-auto">
         
-        {/* Header */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-yellow-400 to-orange-500 bg-clip-text text-transparent mb-2">
-            Hall of Fame
-          </h1>
-          <p className="text-[var(--campus-text-secondary)]">Top hustlers of the semester</p>
+          <h1 className="text-3xl font-bold mb-2">Campus <span className="text-[#2D7FF9]">Legends</span></h1>
+          <p className="text-[var(--campus-text-secondary)]">Compete, earn XP, and become a legend.</p>
         </div>
 
-        {/* Your Rank Card */}
-        <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/50 rounded-2xl p-6 mb-8 flex items-center justify-between relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-[#2D7FF9]/20 blur-[50px] rounded-full pointer-events-none"></div>
-          
-          <div className="flex items-center gap-4 z-10">
-             <div className="h-16 w-16 rounded-full border-4 border-[#2D7FF9] flex items-center justify-center bg-[var(--campus-bg)] shadow-lg shadow-[#2D7FF9]/20">
-                <span className="text-xl font-bold text-[#2D7FF9]">#{userRank}</span>
-             </div>
-             <div>
-                <h2 className="text-xl font-bold text-[var(--campus-text-primary)]">{currentUser?.name}</h2>
-                <p className="text-[#2D7FF9] text-sm font-medium">{currentUser?.xp || 0} XP</p>
-             </div>
-          </div>
-          
-          <div className="text-right z-10">
-             <p className="text-[var(--campus-text-secondary)] text-sm mb-1">Weekly Growth</p>
-             <div className="flex items-center gap-1 text-green-400 justify-end">
-                <TrendingUp className="w-4 h-4" />
-                <span className="font-bold">+12%</span>
-             </div>
-          </div>
-        </div>
-
-        {/* List */}
-        <div className="space-y-4">
-          {allUsers.slice(0, 10).map((user, index) => (
-            <div 
-              key={index}
-              className={`flex items-center p-4 rounded-xl border transition-all hover:scale-[1.01] ${
-                user.name === currentUser?.name 
-                  ? "bg-[#2D7FF9]/10 border-[#2D7FF9] shadow-lg shadow-[#2D7FF9]/10" 
-                  : "bg-[var(--campus-card-bg)] border-[var(--campus-border)]"
-              }`}
-            >
-              <div className="w-8 font-bold text-[var(--campus-text-secondary)]">
-                 {index + 1}
-              </div>
-              
-              <div className="flex-1 flex items-center gap-4">
-                 <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold text-white ${
-                    index === 0 ? "bg-yellow-500 shadow-yellow-500/50" :
-                    index === 1 ? "bg-gray-400 shadow-gray-400/50" :
-                    index === 2 ? "bg-orange-600 shadow-orange-600/50" :
-                    "bg-[var(--campus-surface)] text-[var(--campus-text-secondary)]"
-                 }`}>
-                    {index === 0 ? <Crown className="w-5 h-5" /> : user.avatar}
-                 </div>
-                 <div>
-                    <h3 className="font-bold text-[var(--campus-text-primary)]">
-                       {user.name} 
-                       {user.name === currentUser?.name && <span className="ml-2 text-xs bg-[#2D7FF9] text-white px-2 py-0.5 rounded-full">YOU</span>}
-                    </h3>
-                    <p className="text-xs text-[var(--campus-text-secondary)]">{user.role}</p>
-                 </div>
-              </div>
-
-              <div className="font-mono font-bold text-[#00F5D4]">
-                 {user.xp} XP
-              </div>
+        {/* --- 2. YOUR STATS CARD --- */}
+        <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/30 rounded-2xl p-6 mb-8 relative overflow-hidden">
+            <div className="absolute top-0 right-0 p-4 opacity-10">
+                <myRankInfo.icon className="w-24 h-24" />
             </div>
-          ))}
+            
+            <div className="flex items-center gap-4 mb-4">
+                <Avatar className="w-16 h-16 border-2 border-[#2D7FF9]">
+                    <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username}`} />
+                    <AvatarFallback>{currentUser?.name?.[0]}</AvatarFallback>
+                </Avatar>
+                <div>
+                    <h2 className="text-xl font-bold">{currentUser?.name}</h2>
+                    <div className={`flex items-center gap-2 font-medium ${myRankInfo.color}`}>
+                        <myRankInfo.icon className="w-4 h-4" />
+                        {myRankInfo.title}
+                    </div>
+                </div>
+                <div className="ml-auto text-right">
+                    <p className="text-2xl font-bold">{currentUser?.xp || 0} XP</p>
+                    <p className="text-xs text-[var(--campus-text-secondary)]">Total Earned</p>
+                </div>
+            </div>
+
+            {/* Progress Bar */}
+            <div className="space-y-2">
+                <div className="flex justify-between text-xs text-[var(--campus-text-secondary)]">
+                    <span>Progress to next rank</span>
+                    <span>{myRankInfo.nextLimit - (currentUser?.xp || 0)} XP to go</span>
+                </div>
+                <Progress value={progressPercent} className="h-2 bg-black/20" />
+            </div>
+        </div>
+
+        {/* --- 3. LEADERBOARD LIST --- */}
+        <div className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] rounded-2xl overflow-hidden">
+            <div className="p-4 border-b border-[var(--campus-border)] bg-[var(--campus-surface)]">
+                <h3 className="font-bold flex items-center gap-2">
+                    <TrendingUp className="w-4 h-4 text-green-500" /> Top Heroes this Week
+                </h3>
+            </div>
+            
+            <div className="divide-y divide-[var(--campus-border)]">
+                {LEADERBOARD_DATA.map((user, index) => {
+                    const rank = getRankInfo(user.xp);
+                    const badges = getBadges(user);
+
+                    return (
+                        <div key={user.id} className="p-4 flex items-center gap-4 hover:bg-[var(--campus-surface)] transition-colors">
+                            {/* Rank Number */}
+                            <div className={`w-8 text-center font-bold text-lg ${
+                                index === 0 ? "text-yellow-500" : 
+                                index === 1 ? "text-gray-400" : 
+                                index === 2 ? "text-orange-500" : "text-[var(--campus-text-secondary)]"
+                            }`}>
+                                #{index + 1}
+                            </div>
+
+                            <Avatar>
+                                <AvatarImage src={user.avatar} />
+                                <AvatarFallback>{user.name[0]}</AvatarFallback>
+                            </Avatar>
+
+                            <div className="flex-1">
+                                <div className="flex items-center gap-2">
+                                    <span className="font-medium text-[var(--campus-text-primary)]">{user.name}</span>
+                                    {/* Badges Row */}
+                                    <div className="flex gap-1">
+                                        {badges.map((b, i) => (
+                                            <b.icon key={i} className={`w-3 h-3 ${b.color}`} />
+                                        ))}
+                                    </div>
+                                </div>
+                                <div className="text-xs text-[var(--campus-text-secondary)] flex items-center gap-1">
+                                    {rank.title} • {user.quests} Quests
+                                </div>
+                            </div>
+
+                            <div className="text-right">
+                                <div className="font-bold text-[var(--campus-text-primary)]">{user.xp} XP</div>
+                                <div className="text-xs flex items-center justify-end gap-1 text-yellow-500">
+                                    <Star className="w-3 h-3 fill-current" /> {user.rating}
+                                </div>
+                            </div>
+                        </div>
+                    );
+                })}
+            </div>
         </div>
       </div>
     </div>
