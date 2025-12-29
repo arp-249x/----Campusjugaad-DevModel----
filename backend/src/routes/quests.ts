@@ -220,12 +220,23 @@ router.post('/:id/rate', async (req: Request, res: Response) => {
   }
 });
 
-// 8. SEND CHAT MESSAGE
+// 8. SEND CHAT MESSAGE (Socket.io Upgrade)
 router.post('/:id/messages', async (req: Request, res: Response) => {
   try {
     const { sender, text } = req.body;
     const newMessage = new Message({ questId: req.params.id, sender, text });
     await newMessage.save();
+
+    // ⚡ BROADCAST TO SOCKET ROOM
+    const io = req.app.get('io'); // Get the socket instance we saved in index.ts
+    // Send to everyone in this 'quest room' (including the sender)
+    io.to(req.params.id).emit('receive_message', {
+        id: newMessage._id,
+        text: newMessage.text,
+        sender: sender, // We send raw username, frontend handles 'me' vs 'other'
+        timestamp: newMessage.timestamp
+    });
+
     res.json(newMessage);
   } catch (error) {
     res.status(500).json({ message: "Error sending message" });
