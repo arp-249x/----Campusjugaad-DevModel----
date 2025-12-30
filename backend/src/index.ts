@@ -39,6 +39,7 @@ const onlineUsers = new Map();
 
 io.on('connection', (socket) => {
   const username = socket.handshake.query.username as string;
+  
   if (username) {
       onlineUsers.set(username, socket.id);
       console.log(`⚡ ${username} connected (${socket.id})`);
@@ -50,6 +51,14 @@ io.on('connection', (socket) => {
   socket.on('join_quest', (questId) => {
     socket.join(questId);
   });
+
+  // 👇 NEW: Allow Frontend to check if a specific user is online
+  socket.on('check_online', ({ username }) => {
+    const isOnline = onlineUsers.has(username);
+    // Send answer ONLY to the person who asked
+    socket.emit('is_online_response', { username, isOnline });
+  });
+  
 
   // Typing Events
   socket.on('typing', ({ questId, isTyping }) => {
