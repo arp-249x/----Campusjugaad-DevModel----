@@ -188,28 +188,36 @@ function AppContent() {
   }
 }, [currentUser?.username]);
 
+// --- HELPER: Find who we are talking to ---
+  // If I posted the quest, I talk to 'assignedTo'. If I accepted it, I talk to 'postedBy'.
+  const currentChatQuest = quests.find(q => q._id === chatQuestId || q.id === chatQuestId);
+  const chatPartnerUsername = currentChatQuest 
+      ? (currentChatQuest.postedBy === currentUser?.username ? currentChatQuest.assignedTo : currentChatQuest.postedBy)
+      : null;
+
   const socketRef = useRef<any>(null);
   // --- 3. SOCKET.IO CONNECTION (Real-Time) ---
   useEffect(() => {
     // Only run if we are in 'real' chat mode and have a user + quest
     if (chatMode === 'real' && chatQuestId && currentUser) {
         
-        // 1. CLOSE OLD CONNECTION (Safety Check)
-        if (socketRef.current) {
-            socketRef.current.disconnect();
-        }
+        // 1. Safety Cleanup
+        if (socketRef.current) socketRef.current.disconnect();
 
-        // 2. CONNECT TO SERVER & SAVE TO REF
+        // 2. Connect
         socketRef.current = io('http://localhost:5000', {
             query: { username: currentUser.username }
         });
-
-        // Create a local alias for cleaner code below
         const socket = socketRef.current;
 
-        // 3. SETUP LISTENERS
         socket.emit('join_quest', chatQuestId);
 
+        // ⚡ 3. IMMEDIATE CHECK: Is partner already online?
+        if (chatPartnerUsername) {
+            socket.emit('check_online', { username: chatPartnerUsername });
+        }
+
+        // 4. LISTENERS
         socket.on('receive_message', (incomingMsg: any) => {
             setChatMessages(prev => {
                 if (prev.find(m => m.id === incomingMsg.id)) return prev;
@@ -226,13 +234,23 @@ function AppContent() {
             setIsOtherTyping(isTyping);
         });
 
+        // 🟢 HANDLE STATUS UPDATES (The Fix)
         socket.on('user_status', ({ username, status }: any) => {
-            if (username !== currentUser.username) {
+            // ONLY update if it's the person we are talking to!
+            // Ignore "Guest", "RandomUser", etc.
+            if (username === chatPartnerUsername) {
                 setIsOtherUserOnline(status === 'online');
             }
         });
+
+        // 🟢 HANDLE CHECK RESPONSE
+        socket.on('is_online_response', ({ username, isOnline }: any) => {
+            if (username === chatPartnerUsername) {
+                setIsOtherUserOnline(isOnline);
+            }
+        });
         
-        // 4. FETCH HISTORY
+        // 5. FETCH HISTORY
         fetch(`/api/quests/${chatQuestId}/messages`)
             .then(res => res.json())
             .then(data => {
@@ -242,18 +260,16 @@ function AppContent() {
                     sender: m.sender === currentUser.username ? 'user' : 'other',
                     timestamp: m.timestamp
                 })));
-            })
-            .catch(err => console.error("Failed to fetch messages:", err));
+            });
     }
 
-    // CLEANUP: Disconnect when component unmounts or chat closes
     return () => {
         if (socketRef.current) {
             socketRef.current.disconnect();
             socketRef.current = null;
         }
     };
-  }, [chatMode, chatQuestId, currentUser?.username]);
+  }, [chatMode, chatQuestId, currentUser?.username, chatPartnerUsername]); // <--- Added partner username to dependency
 
   // --- 4. NEW FUNCTION: Handle Typing ---
   const handleTyping = (isTyping: boolean) => {
