@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { ThemeProvider } from "./components/ThemeContext";
 import { ToastProvider, useToast } from "./components/ToastContext";
 import { Navigation } from "./components/Navigation";
@@ -16,7 +16,12 @@ import { Footer } from "./components/Footer";
 import { ChatInterface } from "./components/ChatInterface";
 import { AuthPage } from "./components/AuthPage";
 import { HelpCircle } from "lucide-react";
-import { io } from "socket.io-client";
+
+declare global {
+  interface Window {
+    OneSignalDeferred: any[];
+  }
+}
 
 // --- TYPES ---
 export interface Quest {
@@ -65,9 +70,6 @@ function AppContent() {
   const [chatMode, setChatMode] = useState<'none' | 'ai' | 'real'>('none');
   const [chatMessages, setChatMessages] = useState<any[]>([]);
   const [chatQuestId, setChatQuestId] = useState<string | null>(null);
-  // 👇 NEW VARIABLES FOR SOCKET FEATURES
-  const [isOtherUserOnline, setIsOtherUserOnline] = useState(false);
-  const [isOtherTyping, setIsOtherTyping] = useState(false);
   
   // --- APP STATE ---
   const [activeTab, setActiveTab] = useState("post");
@@ -99,6 +101,18 @@ function AppContent() {
   const [activityLog, setActivityLog] = useState<Quest[]>([]); // Derived from quests now
   const [balance, setBalance] = useState(450);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+
+  //Push Notifications
+  // Add inside AppContent()
+  useEffect(() => {
+      // Check if OneSignal is loaded on the window object
+      if (window.OneSignalDeferred) {
+          window.OneSignalDeferred.push(function(OneSignal: any) {
+              // This shows the bell icon or native prompt automatically
+              OneSignal.Slidedown.promptPush();
+          });
+      }
+  }, []);
 
   // --- 1. INITIAL LOAD & WALLET SYNC ---
   
@@ -188,96 +202,36 @@ function AppContent() {
   }
 }, [currentUser?.username]);
 
-// --- HELPER: Find who we are talking to ---
-  // If I posted the quest, I talk to 'assignedTo'. If I accepted it, I talk to 'postedBy'.
-  const currentChatQuest = quests.find(q => q._id === chatQuestId || q.id === chatQuestId);
-  const chatPartnerUsername = currentChatQuest 
-      ? (currentChatQuest.postedBy === currentUser?.username ? currentChatQuest.assignedTo : currentChatQuest.postedBy)
-      : null;
 
-  const socketRef = useRef<any>(null);
-  // --- 3. SOCKET.IO CONNECTION (Real-Time) ---
+ // --- 3. CHAT POLLING (Real Mode) ---
   useEffect(() => {
-    // Only run if we are in 'real' chat mode and have a user + quest
-    if (chatMode === 'real' && chatQuestId && currentUser) {
-        
-        // 1. Safety Cleanup
-        if (socketRef.current) socketRef.current.disconnect();
-
-        // 2. Connect
-        socketRef.current = io('http://localhost:5000', {
-            query: { username: currentUser.username }
-        });
-        const socket = socketRef.current;
-
-        socket.emit('join_quest', chatQuestId);
-
-        // ⚡ 3. IMMEDIATE CHECK: Is partner already online?
-        if (chatPartnerUsername) {
-            socket.emit('check_online', { username: chatPartnerUsername });
-        }
-
-        // 4. LISTENERS
-        socket.on('receive_message', (incomingMsg: any) => {
-            setChatMessages(prev => {
-                if (prev.find(m => m.id === incomingMsg.id)) return prev;
-                return [...prev, {
-                    id: incomingMsg.id,
-                    text: incomingMsg.text,
-                    sender: incomingMsg.sender === currentUser.username ? 'user' : 'other',
-                    timestamp: incomingMsg.timestamp
-                }];
-            });
-        });
-
-        socket.on('other_typing', (isTyping: boolean) => {
-            setIsOtherTyping(isTyping);
-        });
-
-        // 🟢 HANDLE STATUS UPDATES (The Fix)
-        socket.on('user_status', ({ username, status }: any) => {
-            // ONLY update if it's the person we are talking to!
-            // Ignore "Guest", "RandomUser", etc.
-            if (username === chatPartnerUsername) {
-                setIsOtherUserOnline(status === 'online');
+    let interval: any;
+    // Check if we are in real mode and have a valid Quest ID
+    if (chatMode === 'real' && chatQuestId) {
+        const fetchMessages = async () => {
+            try {
+                // 👇 FIX: Use relative path '/api' (No localhost!)
+                const res = await fetch(`/api/quests/${chatQuestId}/messages`);
+                if (res.ok) {
+                    const data = await res.json();
+                    setChatMessages(data.map((m: any) => ({
+                        id: m._id,
+                        text: m.text,
+                        sender: m.sender === currentUser?.username ? 'user' : 'other',
+                        timestamp: m.timestamp
+                    })));
+                }
+            } catch (e) { 
+                console.error("Polling error", e); 
             }
-        });
-
-        // 🟢 HANDLE CHECK RESPONSE
-        socket.on('is_online_response', ({ username, isOnline }: any) => {
-            if (username === chatPartnerUsername) {
-                setIsOtherUserOnline(isOnline);
-            }
-        });
+        };
         
-        // 5. FETCH HISTORY
-        fetch(`/api/quests/${chatQuestId}/messages`)
-            .then(res => res.json())
-            .then(data => {
-                setChatMessages(data.map((m: any) => ({
-                    id: m._id,
-                    text: m.text,
-                    sender: m.sender === currentUser.username ? 'user' : 'other',
-                    timestamp: m.timestamp
-                })));
-            });
+        // Run immediately, then every 3 seconds
+        fetchMessages();
+        interval = setInterval(fetchMessages, 3000);
     }
-
-    return () => {
-        if (socketRef.current) {
-            socketRef.current.disconnect();
-            socketRef.current = null;
-        }
-    };
-  }, [chatMode, chatQuestId, currentUser?.username, chatPartnerUsername]); // <--- Added partner username to dependency
-
-  // --- 4. NEW FUNCTION: Handle Typing ---
-  const handleTyping = (isTyping: boolean) => {
-      // Use the existing socket connection to send the event
-      if (socketRef.current && chatQuestId) {
-          socketRef.current.emit('typing', { questId: chatQuestId, isTyping });
-      }
-  };
+    return () => clearInterval(interval);
+  }, [chatMode, chatQuestId, currentUser]);
 
 
   // --- ACTIONS ---
@@ -511,15 +465,20 @@ useEffect(() => {
             });
 
             // Only update UI if server says "OK"
-            // Inside handleSendMessage
-            if (!response.ok) {
-                console.error("Failed to send message");
+            if (response.ok) {
+                const savedMessage = await response.json();
+                setChatMessages(prev => [...prev, { 
+                    id: savedMessage._id, 
+                    text: savedMessage.text, 
+                    sender: 'user', 
+                    timestamp: savedMessage.timestamp 
+                }]);
             }
           } catch(err) {
             console.error("Failed to send", err);
           }
         }
-    }
+    } 
     // AI Fallback
     else if (chatMode === 'ai') {
         setChatMessages(prev => [...prev, { text, sender: 'user', timestamp: new Date() }]);
@@ -679,12 +638,6 @@ useEffect(() => {
         title={chatMode === 'ai' ? "Campus Support Bot" : `Chat: ${activeQuest?.title || 'Quest'}`}
         messages={chatMessages}
         onSendMessage={handleSendMessage}
-        onTyping={handleTyping}
-        isOnline={isOtherUserOnline}
-        isTyping={isOtherTyping}
-        questId={chatQuestId || undefined}
-        currentUser={currentUser}
-
         // Legacy props for UI fallback
         questTitle={activeQuest?.title || ""}
         questLocation={activeQuest?.location || ""}

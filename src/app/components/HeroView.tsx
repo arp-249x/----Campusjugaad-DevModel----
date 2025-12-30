@@ -1,4 +1,4 @@
-import { Search, Filter, ArrowUpDown, Flame, MapPin, DollarSign } from "lucide-react";
+import { Search, Filter, ArrowUpDown, Flame, MapPin, DollarSign, ListFilter } from "lucide-react";
 import { QuestCard } from "./QuestCard";
 import { useState, useMemo } from "react";
 import { ToastNotification } from "./ToastNotification";
@@ -18,6 +18,9 @@ interface Quest {
   isMyQuest?: boolean;
   otp: string;
   postedBy?: string;
+  id?: string;
+  _id?: string;
+  negotiable?: boolean;
 }
 
 interface HeroViewProps {
@@ -30,14 +33,14 @@ interface HeroViewProps {
 export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: HeroViewProps) {
   const [showToast, setShowToast] = useState(false);
   const [acceptedQuest, setAcceptedQuest] = useState<Quest | null>(null);
-  
+  const [isLoading, setIsLoading] = useState(false);
+
   // --- 1. NEW STATE FOR FILTERS ---
   const [searchQuery, setSearchQuery] = useState("");
   const [activeFilter, setActiveFilter] = useState<'all' | 'urgent' | 'high-pay' | 'near-me'>('all');
   const [sortBy, setSortBy] = useState<'newest' | 'reward' | 'deadline'>('newest');
 
   // --- 2. THE FILTER ENGINE ---
-  // useMemo ensures this only runs when inputs change (Performance Optimization)
   const processedQuests = useMemo(() => {
     let result = [...quests];
 
@@ -57,7 +60,7 @@ export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: He
     } else if (activeFilter === 'high-pay') {
       result = result.filter(q => q.reward >= 100); // Threshold for "High Pay"
     } 
-    // (Add 'near-me' logic later with real geo-coordinates)
+    // (Add 'near-me' logic later)
 
     // C. Sorting Logic
     if (sortBy === 'reward') {
@@ -65,11 +68,10 @@ export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: He
     } else if (sortBy === 'deadline') {
       result.sort((a, b) => new Date(a.deadlineIso || "").getTime() - new Date(b.deadlineIso || "").getTime()); // Soonest first
     } 
-    // Default 'newest' relies on backend order (usually newest first)
+    // Default 'newest' relies on backend order
 
     return result;
   }, [quests, searchQuery, activeFilter, sortBy]);
-
 
   const handleAcceptQuest = (quest: Quest) => {
     if (activeQuest) {
@@ -79,6 +81,22 @@ export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: He
     setAcceptedQuest(quest);
     setShowToast(true);
     onAcceptQuest?.(quest);
+  };
+
+  const handleRefresh = () => {
+    setIsLoading(true);
+    // Simulate refresh logic
+    setTimeout(() => {
+        setSearchQuery("");
+        setActiveFilter("all");
+        setIsLoading(false);
+    }, 1000);
+  };
+
+  const handleClearFilters = () => {
+    setSearchQuery("");
+    setActiveFilter("all");
+    setSortBy("newest");
   };
 
   return (
@@ -95,8 +113,8 @@ export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: He
           </p>
         </div>
 
-        {/* --- 3. NEW CONTROL BAR --- */}
-        <div className="sticky top-20 z-30 bg-[var(--campus-bg)]/80 backdrop-blur-md py-4 mb-6 -mx-4 px-4 border-b border-[var(--campus-border)]">
+        {/* --- 3. CONTROL BAR (Search & Filter) --- */}
+        <div className="sticky top-20 z-30 bg-[var(--campus-bg)]/95 backdrop-blur-md py-4 mb-6 -mx-4 px-4 border-b border-[var(--campus-border)] shadow-sm">
           <div className="max-w-[1600px] mx-auto flex flex-col md:flex-row gap-4 justify-between items-center">
             
             {/* Search Input */}
@@ -114,7 +132,6 @@ export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: He
             {/* Filter Pills & Sort */}
             <div className="flex items-center gap-2 overflow-x-auto w-full md:w-auto pb-2 md:pb-0 scrollbar-hide">
               
-              {/* Filter: All */}
               <button 
                 onClick={() => setActiveFilter('all')}
                 className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border ${
@@ -126,7 +143,6 @@ export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: He
                 All
               </button>
 
-              {/* Filter: High Pay */}
               <button 
                 onClick={() => setActiveFilter('high-pay')}
                 className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border ${
@@ -138,7 +154,6 @@ export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: He
                 <DollarSign className="w-3 h-3" /> High Pay
               </button>
 
-              {/* Filter: Urgent */}
               <button 
                 onClick={() => setActiveFilter('urgent')}
                 className={`flex items-center gap-1 px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-all border ${
@@ -152,30 +167,45 @@ export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: He
 
               <div className="w-px h-6 bg-[var(--campus-border)] mx-2"></div>
 
-              {/* Sort Dropdown (Simple) */}
-              <select 
-                value={sortBy}
-                onChange={(e) => setSortBy(e.target.value as any)}
-                className="bg-transparent text-sm font-medium text-[var(--campus-text-primary)] outline-none cursor-pointer"
-              >
-                <option value="newest" className="bg-[var(--campus-card-bg)]">Sort: Newest</option>
-                <option value="reward" className="bg-[var(--campus-card-bg)]">Sort: Highest Pay</option>
-                <option value="deadline" className="bg-[var(--campus-card-bg)]">Sort: Urgent Deadline</option>
-              </select>
+              <div className="relative">
+                <select 
+                    value={sortBy}
+                    onChange={(e) => setSortBy(e.target.value as any)}
+                    className="appearance-none bg-transparent pl-2 pr-8 py-2 text-sm font-medium text-[var(--campus-text-primary)] outline-none cursor-pointer hover:text-[#2D7FF9]"
+                >
+                    <option value="newest" className="bg-[var(--campus-card-bg)] text-[var(--campus-text-primary)]">Newest First</option>
+                    <option value="reward" className="bg-[var(--campus-card-bg)] text-[var(--campus-text-primary)]">Highest Pay</option>
+                    <option value="deadline" className="bg-[var(--campus-card-bg)] text-[var(--campus-text-primary)]">Urgent Deadline</option>
+                </select>
+                <ArrowUpDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--campus-text-secondary)] pointer-events-none" />
+              </div>
             </div>
           </div>
         </div>
 
-        {/* RESULTS GRID */}
-        {processedQuests.length === 0 ? (
-           <div className="py-20 text-center">
-             <EmptyState onRefresh={() => {setSearchQuery(''); setActiveFilter('all');}} onClearFilters={() => {setSearchQuery(''); setActiveFilter('all');}} />
-             <p className="mt-4 text-[var(--campus-text-secondary)]">Try adjusting your filters.</p>
+        {/* LOADING STATE */}
+        {isLoading && <SkeletonLoader />}
+
+        {/* EMPTY STATE */}
+        {!isLoading && processedQuests.length === 0 && (
+           <div className="py-20 text-center animate-in fade-in zoom-in duration-300">
+             <EmptyState 
+                onRefresh={handleRefresh} 
+                onClearFilters={handleClearFilters} 
+             />
+             <p className="mt-4 text-[var(--campus-text-secondary)]">
+                {searchQuery || activeFilter !== 'all' ? "No quests match your filters." : "No quests available right now."}
+             </p>
            </div>
-        ) : (
+        )}
+
+        {/* RESULTS GRID */}
+        {!isLoading && processedQuests.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
             {processedQuests.map((quest, index) => {
+              // Ownership Check
               const isOwner = currentUser?.username === quest.postedBy;
+              
               return (
                 <div key={index} className="relative group">
                   <QuestCard 
@@ -183,6 +213,7 @@ export function HeroView({ quests, onAcceptQuest, activeQuest, currentUser }: He
                     onAccept={() => handleAcceptQuest(quest)}
                     isAccepted={activeQuest?.title === quest.title}
                     isMyQuest={isOwner}
+                    currentUser={currentUser} // Pass currentUser down for bidding logic if needed
                   />
                 </div>
               );

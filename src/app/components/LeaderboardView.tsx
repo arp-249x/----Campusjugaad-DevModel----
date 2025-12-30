@@ -1,4 +1,4 @@
-import { Trophy, Medal, Crown, Star, TrendingUp, Shield, Zap } from "lucide-react";
+import { Trophy, Crown, Star, TrendingUp, Shield, Zap } from "lucide-react";
 import { Avatar, AvatarImage, AvatarFallback } from "./ui/avatar";
 import { Progress } from "./ui/progress";
 
@@ -19,10 +19,10 @@ export function LeaderboardView({ currentUser }: LeaderboardViewProps) {
   
   // --- 1. GAMIFICATION ENGINE ---
   const getRankInfo = (xp: number) => {
-    if (xp >= 2000) return { title: "Campus Legend", color: "text-yellow-400", icon: Crown, nextLimit: 5000 };
-    if (xp >= 1000) return { title: "Quest Master", color: "text-purple-400", icon: Trophy, nextLimit: 2000 };
-    if (xp >= 500) return { title: "Rising Star", color: "text-blue-400", icon: Star, nextLimit: 1000 };
-    return { title: "Novice Hero", color: "text-gray-400", icon: Shield, nextLimit: 500 };
+    if (xp >= 2000) return { title: "Campus Legend", color: "text-yellow-500", icon: Crown, nextLimit: 5000 };
+    if (xp >= 1000) return { title: "Quest Master", color: "text-purple-500", icon: Trophy, nextLimit: 2000 };
+    if (xp >= 500) return { title: "Rising Star", color: "text-blue-500", icon: Star, nextLimit: 1000 };
+    return { title: "Novice Hero", color: "text-slate-400", icon: Shield, nextLimit: 500 };
   };
 
   const getBadges = (user: any) => {
@@ -33,59 +33,62 @@ export function LeaderboardView({ currentUser }: LeaderboardViewProps) {
     return badges;
   };
 
-  // Merge Current User into list if they verify (Simulated for Demo)
-  // In real app, `currentUser` data would be fetched alongside leaderboard
+  // Rank Info for Current User
   const myRankInfo = getRankInfo(currentUser?.xp || 0);
+  // Calculate Progress Percentage (Max 100%)
   const progressPercent = Math.min(100, ((currentUser?.xp || 0) / myRankInfo.nextLimit) * 100);
 
   return (
     <div className="min-h-screen pt-24 px-4 pb-24 bg-[var(--campus-bg)]">
-      <div className="max-w-2xl mx-auto">
+      <div className="max-w-3xl mx-auto">
         
+        {/* HEADER */}
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-bold mb-2">Campus <span className="text-[#2D7FF9]">Legends</span></h1>
+          <h1 className="text-3xl md:text-4xl font-bold mb-2">Campus <span className="text-[#2D7FF9]">Legends</span></h1>
           <p className="text-[var(--campus-text-secondary)]">Compete, earn XP, and become a legend.</p>
         </div>
 
         {/* --- 2. YOUR STATS CARD --- */}
-        <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/30 rounded-2xl p-6 mb-8 relative overflow-hidden">
-            <div className="absolute top-0 right-0 p-4 opacity-10">
-                <myRankInfo.icon className="w-24 h-24" />
+        <div className="bg-gradient-to-r from-[#2D7FF9]/10 to-[#9D4EDD]/10 border border-[#2D7FF9]/30 rounded-2xl p-6 mb-8 relative overflow-hidden shadow-lg">
+            <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                <myRankInfo.icon className="w-32 h-32" />
             </div>
             
-            <div className="flex items-center gap-4 mb-4">
-                <Avatar className="w-16 h-16 border-2 border-[#2D7FF9]">
+            <div className="flex flex-col md:flex-row md:items-center gap-6 mb-6 relative z-10">
+                <Avatar className="w-20 h-20 border-4 border-[#2D7FF9] shadow-md">
                     <AvatarImage src={`https://api.dicebear.com/7.x/avataaars/svg?seed=${currentUser?.username}`} />
                     <AvatarFallback>{currentUser?.name?.[0]}</AvatarFallback>
                 </Avatar>
-                <div>
-                    <h2 className="text-xl font-bold">{currentUser?.name}</h2>
-                    <div className={`flex items-center gap-2 font-medium ${myRankInfo.color}`}>
-                        <myRankInfo.icon className="w-4 h-4" />
+                
+                <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-[var(--campus-text-primary)]">{currentUser?.name}</h2>
+                    <div className={`flex items-center gap-2 font-bold text-lg mt-1 ${myRankInfo.color}`}>
+                        <myRankInfo.icon className="w-5 h-5 fill-current" />
                         {myRankInfo.title}
                     </div>
                 </div>
-                <div className="ml-auto text-right">
-                    <p className="text-2xl font-bold">{currentUser?.xp || 0} XP</p>
-                    <p className="text-xs text-[var(--campus-text-secondary)]">Total Earned</p>
+
+                <div className="text-left md:text-right">
+                    <p className="text-3xl font-black text-[var(--campus-text-primary)]">{currentUser?.xp || 0} <span className="text-sm font-normal text-[var(--campus-text-secondary)]">XP</span></p>
+                    <p className="text-sm text-[var(--campus-text-secondary)]">Total Earned</p>
                 </div>
             </div>
 
             {/* Progress Bar */}
-            <div className="space-y-2">
-                <div className="flex justify-between text-xs text-[var(--campus-text-secondary)]">
+            <div className="space-y-2 relative z-10">
+                <div className="flex justify-between text-xs font-medium text-[var(--campus-text-secondary)]">
                     <span>Progress to next rank</span>
-                    <span>{myRankInfo.nextLimit - (currentUser?.xp || 0)} XP to go</span>
+                    <span>{myRankInfo.nextLimit - (currentUser?.xp || 0)} XP needed</span>
                 </div>
-                <Progress value={progressPercent} className="h-2 bg-black/20" />
+                <Progress value={progressPercent} className="h-3 bg-[var(--campus-border)]" />
             </div>
         </div>
 
         {/* --- 3. LEADERBOARD LIST --- */}
-        <div className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] rounded-2xl overflow-hidden">
-            <div className="p-4 border-b border-[var(--campus-border)] bg-[var(--campus-surface)]">
-                <h3 className="font-bold flex items-center gap-2">
-                    <TrendingUp className="w-4 h-4 text-green-500" /> Top Heroes this Week
+        <div className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] rounded-2xl overflow-hidden shadow-sm">
+            <div className="p-4 border-b border-[var(--campus-border)] bg-[var(--campus-surface)]/50 backdrop-blur-sm">
+                <h3 className="font-bold flex items-center gap-2 text-[var(--campus-text-primary)]">
+                    <TrendingUp className="w-5 h-5 text-green-500" /> Top Heroes this Week
                 </h3>
             </div>
             
@@ -93,41 +96,46 @@ export function LeaderboardView({ currentUser }: LeaderboardViewProps) {
                 {LEADERBOARD_DATA.map((user, index) => {
                     const rank = getRankInfo(user.xp);
                     const badges = getBadges(user);
+                    const isTopThree = index < 3;
 
                     return (
-                        <div key={user.id} className="p-4 flex items-center gap-4 hover:bg-[var(--campus-surface)] transition-colors">
+                        <div key={user.id} className="p-4 flex items-center gap-4 hover:bg-[var(--campus-surface)] transition-colors group">
                             {/* Rank Number */}
                             <div className={`w-8 text-center font-bold text-lg ${
-                                index === 0 ? "text-yellow-500" : 
-                                index === 1 ? "text-gray-400" : 
+                                index === 0 ? "text-yellow-500 drop-shadow-sm" : 
+                                index === 1 ? "text-slate-400" : 
                                 index === 2 ? "text-orange-500" : "text-[var(--campus-text-secondary)]"
                             }`}>
                                 #{index + 1}
                             </div>
 
-                            <Avatar>
+                            <Avatar className={`border-2 ${isTopThree ? 'border-transparent ring-2 ring-offset-2 ring-offset-[var(--campus-bg)]' : 'border-transparent'} ${
+                                index === 0 ? 'ring-yellow-500' : index === 1 ? 'ring-slate-400' : index === 2 ? 'ring-orange-500' : ''
+                            }`}>
                                 <AvatarImage src={user.avatar} />
                                 <AvatarFallback>{user.name[0]}</AvatarFallback>
                             </Avatar>
 
-                            <div className="flex-1">
-                                <div className="flex items-center gap-2">
-                                    <span className="font-medium text-[var(--campus-text-primary)]">{user.name}</span>
+                            <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 flex-wrap">
+                                    <span className="font-bold text-[var(--campus-text-primary)] truncate">{user.name}</span>
                                     {/* Badges Row */}
                                     <div className="flex gap-1">
                                         {badges.map((b, i) => (
-                                            <b.icon key={i} className={`w-3 h-3 ${b.color}`} />
+                                            <div key={i} title={b.tooltip}>
+                                                <b.icon className={`w-4 h-4 ${b.color}`} />
+                                            </div>
                                         ))}
                                     </div>
                                 </div>
-                                <div className="text-xs text-[var(--campus-text-secondary)] flex items-center gap-1">
+                                <div className="text-xs text-[var(--campus-text-secondary)] flex items-center gap-1 mt-0.5">
                                     {rank.title} • {user.quests} Quests
                                 </div>
                             </div>
 
-                            <div className="text-right">
+                            <div className="text-right whitespace-nowrap">
                                 <div className="font-bold text-[var(--campus-text-primary)]">{user.xp} XP</div>
-                                <div className="text-xs flex items-center justify-end gap-1 text-yellow-500">
+                                <div className="text-xs flex items-center justify-end gap-1 text-yellow-500 font-medium">
                                     <Star className="w-3 h-3 fill-current" /> {user.rating}
                                 </div>
                             </div>
