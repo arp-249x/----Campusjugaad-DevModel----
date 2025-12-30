@@ -3,7 +3,7 @@ import { Quest } from '../models/Quest';
 import { User } from '../models/User';
 import { Message } from '../models/Message';
 import { Transaction } from '../models/Transaction'; // Ensure this model exists
-
+import { sendNewQuestNotification } from '../services/onesignal';
 const router = express.Router();
 
 // 1. GET ALL QUESTS (Except Expired)
@@ -72,6 +72,9 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     await newQuest.save();
+    // 99. SEND NOTIFICATION (Async - don't wait for it to finish)
+    // We don't await this because we don't want to slow down the user's request
+    sendNewQuestNotification(title, reward).catch(err => console.error(err));
     res.status(201).json(newQuest);
   } catch (error) {
     res.status(500).json({ message: "Error creating quest" });
@@ -220,23 +223,12 @@ router.post('/:id/rate', async (req: Request, res: Response) => {
   }
 });
 
-// 8. SEND CHAT MESSAGE (Socket.io Upgrade)
+// 8. SEND CHAT MESSAGE
 router.post('/:id/messages', async (req: Request, res: Response) => {
   try {
     const { sender, text } = req.body;
     const newMessage = new Message({ questId: req.params.id, sender, text });
     await newMessage.save();
-
-    // ⚡ BROADCAST TO SOCKET ROOM
-    const io = req.app.get('io'); // Get the socket instance we saved in index.ts
-    // Send to everyone in this 'quest room' (including the sender)
-    io.to(req.params.id).emit('receive_message', {
-        id: newMessage._id,
-        text: newMessage.text,
-        sender: sender, // We send raw username, frontend handles 'me' vs 'other'
-        timestamp: newMessage.timestamp
-    });
-
     res.json(newMessage);
   } catch (error) {
     res.status(500).json({ message: "Error sending message" });
