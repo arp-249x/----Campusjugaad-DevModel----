@@ -24,6 +24,28 @@ export function DashboardView({
   
   const [ratingModalOpen, setRatingModalOpen] = useState<string | null>(null);
 
+  // Helper to accept a bid
+  const handleAcceptBid = async (questId: string, heroUsername: string, bidAmount: number) => {
+    try {
+        const res = await fetch(`/api/quests/${questId}/accept-bid`, {
+            method: 'PUT',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                taskMaster: currentUser.username,
+                heroUsername, 
+                bidAmount 
+            })
+        });
+        if (res.ok) {
+            alert("Bid Accepted! Hero assigned."); 
+            window.location.reload(); // Refresh to show active status
+        } else {
+            const err = await res.json();
+            alert(err.message || "Failed to accept bid");
+        }
+    } catch (e) { console.error(e); }
+  };
+
   return (
     <div className="min-h-screen pt-24 px-4 pb-20 bg-[var(--campus-bg)]">
       <div className="max-w-[1200px] mx-auto">
@@ -96,39 +118,64 @@ export function DashboardView({
                  </div>
               )}
 
-              {/* Posted Quests List (WITH DYNAMIC STATUS) */}
+              {/* Posted Quests List */}
               <div>
                  <h3 className="text-sm font-bold text-[var(--campus-text-secondary)] uppercase tracking-wider mb-3">Posted by You</h3>
                  {postedQuests.length > 0 ? (
                     <div className="space-y-3">
-                       {postedQuests.map((q, i) => (
-                          <div key={i} className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] p-4 rounded-xl flex justify-between items-center group">
-                             <div>
-                                <p className="font-medium text-[var(--campus-text-primary)]">{q.title}</p>
-                                <p className="text-xs text-[var(--campus-text-secondary)]">{q.deadline}</p>
-                             </div>
-                             
-                             <div className="flex items-center gap-2">
-                                {/* DYNAMIC STATUS BADGE */}
-                                <span className={`text-xs px-2 py-1 rounded ${
-                                    q.status === 'open' ? 'bg-yellow-500/20 text-yellow-500' :
-                                    q.status === 'active' ? 'bg-blue-500/20 text-blue-500' :
+                       {postedQuests.map((q: any, i: number) => (
+                          <div key={i} className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] p-4 rounded-xl">
+                             <div className="flex justify-between items-center">
+                                 <div>
+                                    <p className="font-medium text-[var(--campus-text-primary)]">{q.title}</p>
+                                    <p className="text-xs text-[var(--campus-text-secondary)]">Reward: ₹{q.reward}</p>
+                                 </div>
+                                 <span className={`text-xs px-2 py-1 rounded ${
+                                    q.status === 'open' ? 'bg-yellow-500/20 text-yellow-500' : 
+                                    q.status === 'active' ? 'bg-blue-500/20 text-blue-500' : 
                                     'bg-green-500/20 text-green-500'
-                                }`}>
-                                    {q.status === 'open' ? 'PENDING' : q.status.toUpperCase()}
-                                </span>
+                                 }`}>
+                                    {q.status.toUpperCase()}
+                                 </span>
+                             </div>
 
-                                {/* CANCEL BUTTON (Only if Open) */}
-                                {q.status === 'open' && (
+                             {/* CANCEL BUTTON (Only if Open) */}
+                             {q.status === 'open' && (
+                                <div className="flex justify-end mt-2">
                                     <button 
                                         onClick={() => onCancelQuest(q._id)}
-                                        className="p-2 text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                                        title="Cancel Quest"
+                                        className="text-red-500 text-xs hover:underline flex items-center gap-1"
                                     >
-                                        <Trash2 className="w-4 h-4" />
+                                        <Trash2 className="w-3 h-3" /> Cancel Quest
                                     </button>
-                                )}
-                             </div>
+                                </div>
+                             )}
+
+                             {/* BIDS SECTION (Only for Open Quests) */}
+                             {q.status === 'open' && q.bids && q.bids.length > 0 && (
+                                 <div className="mt-3 pt-3 border-t border-[var(--campus-border)]">
+                                     <p className="text-xs font-bold text-[var(--campus-text-secondary)] mb-2">INCOMING BIDS ({q.bids.length})</p>
+                                     <div className="space-y-2">
+                                         {q.bids.map((bid: any, idx: number) => (
+                                             <div key={idx} className="flex items-center justify-between bg-[var(--campus-bg)] p-2 rounded-lg border border-[var(--campus-border)]">
+                                                 <div className="text-sm">
+                                                     <span className="text-[var(--campus-text-primary)] font-medium">@{bid.heroUsername}</span>
+                                                     <span className="text-[var(--campus-text-secondary)] ml-2">offers</span>
+                                                 </div>
+                                                 <div className="flex items-center gap-3">
+                                                     <span className="text-[#00F5D4] font-bold">₹{bid.amount}</span>
+                                                     <button 
+                                                         onClick={() => handleAcceptBid(q._id, bid.heroUsername, bid.amount)}
+                                                         className="bg-green-500/20 hover:bg-green-500/30 text-green-500 text-xs px-3 py-1.5 rounded-md transition-colors font-bold"
+                                                     >
+                                                         Accept
+                                                     </button>
+                                                 </div>
+                                             </div>
+                                         ))}
+                                     </div>
+                                 </div>
+                             )}
                           </div>
                        ))}
                     </div>
@@ -138,7 +185,7 @@ export function DashboardView({
               </div>
            </div>
 
-           {/* Right Column: History (WITH RATINGS) */}
+           {/* Right Column: History */}
            <div>
               <h2 className="text-xl font-bold text-[var(--campus-text-primary)] mb-4">Recent Activity</h2>
               <div className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] rounded-2xl overflow-hidden">

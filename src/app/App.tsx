@@ -17,12 +17,6 @@ import { ChatInterface } from "./components/ChatInterface";
 import { AuthPage } from "./components/AuthPage";
 import { HelpCircle } from "lucide-react";
 
-declare global {
-  interface Window {
-    OneSignalDeferred: any[];
-  }
-}
-
 // --- TYPES ---
 export interface Quest {
   _id?: string; // Added for Backend ID
@@ -102,17 +96,6 @@ function AppContent() {
   const [balance, setBalance] = useState(450);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  //Push Notifications
-  // Add inside AppContent()
-  useEffect(() => {
-      // Check if OneSignal is loaded on the window object
-      if (window.OneSignalDeferred) {
-          window.OneSignalDeferred.push(function(OneSignal: any) {
-              // This shows the bell icon or native prompt automatically
-              OneSignal.Slidedown.promptPush();
-          });
-      }
-  }, []);
 
   // --- 1. INITIAL LOAD & WALLET SYNC ---
   
@@ -341,6 +324,28 @@ useEffect(() => {
   }
 }, [currentUser?.username]);
 
+const handlePlaceBid = async (quest: Quest, bidAmount: number) => {
+    if (!currentUser) return;
+    try {
+        const res = await fetch(`/api/quests/${quest._id}/bid`, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ 
+                heroUsername: currentUser.username, 
+                amount: bidAmount 
+            })
+        });
+        
+        if (res.ok) {
+            showToast("success", "Bid Placed!", `You offered ₹${bidAmount} for "${quest.title}"`);
+            fetchQuests(); // Refresh data
+        } else {
+            const err = await res.json();
+            showToast("error", "Error", err.message);
+        }
+    } catch (e) { console.error(e); }
+  };
+
 
   const handleAcceptQuest = async (quest: Quest) => {
   // ... existing checks ...
@@ -562,14 +567,14 @@ useEffect(() => {
         {activeTab === "post" && <TaskMasterView addQuest={addQuest} balance={balance} />}
         
         {activeTab === "find" && (
-          <HeroView 
-            // FILTER: Only Open Quests
-            quests={quests.filter(q => q.status === "open")} 
-            onAcceptQuest={handleAcceptQuest} 
-            activeQuest={activeQuest} 
-            currentUser={currentUser}
-          />
-        )}
+      <HeroView 
+        quests={quests.filter(q => q.status === "open")} 
+        onAcceptQuest={handleAcceptQuest} 
+        onPlaceBid={handlePlaceBid} // 👈 ADD THIS LINE
+        activeQuest={activeQuest} 
+        currentUser={currentUser}
+  />
+)}
         
         {activeTab === "dashboard" && (
             <DashboardView 
