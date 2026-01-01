@@ -13,9 +13,14 @@ const QuestSchema = new mongoose.Schema({
   status: { type: String, enum: ['open', 'active', 'completed', 'expired'], default: 'open' },
   otp: { type: String },
   assignedTo: { type: String, default: null },
-  // 👇 NEW: Check if rating was given
-  ratingGiven: { type: Boolean, default: false }
+  ratingGiven: { type: Boolean, default: false },
+  
+  // 👇 NEW: Store the bids here
+  bids: [{
+    heroUsername: { type: String, required: true },
+    amount: { type: Number, required: true },
+    timestamp: { type: Date, default: Date.now }
+  }]
 }, { timestamps: true });
-
 
 export const Quest = mongoose.model('Quest', QuestSchema);

@@ -3,7 +3,7 @@ import { Quest } from '../models/Quest';
 import { User } from '../models/User';
 import { Message } from '../models/Message';
 import { Transaction } from '../models/Transaction'; // Ensure this model exists
-import { sendNewQuestNotification } from '../services/onesignal';
+
 const router = express.Router();
 
 // 1. GET ALL QUESTS (Except Expired)
@@ -72,9 +72,6 @@ router.post('/', async (req: Request, res: Response) => {
     });
 
     await newQuest.save();
-    // 99. SEND NOTIFICATION (Async - don't wait for it to finish)
-    // We don't await this because we don't want to slow down the user's request
-    sendNewQuestNotification(title, reward).catch(err => console.error(err));
     res.status(201).json(newQuest);
   } catch (error) {
     res.status(500).json({ message: "Error creating quest" });
@@ -245,5 +242,79 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
   }
 });
 
+// ... (previous imports)
+
+// [NEW] 10. PLACE A BID (Hero)
+router.post('/:id/bid', async (req: Request, res: Response) => {
+  try {
+    const { heroUsername, amount } = req.body;
+    const quest = await Quest.findById(req.params.id);
+
+    if (!quest) return res.status(404).json({ message: "Quest not found" });
+    if (quest.status !== 'open') return res.status(400).json({ message: "Bidding is closed" });
+    if (quest.postedBy === heroUsername) return res.status(403).json({ message: "Cannot bid on your own quest" });
+
+    // Add bid to array
+    quest.bids.push({ heroUsername, amount, timestamp: new Date() });
+    await quest.save();
+
+    res.json({ message: "Bid placed successfully!", quest });
+  } catch (error) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
+
+// [NEW] 11. ACCEPT A BID (Task Master)
+router.put('/:id/accept-bid', async (req: Request, res: Response) => {
+  try {
+    const { taskMaster, heroUsername, bidAmount } = req.body;
+    const quest = await Quest.findById(req.params.id);
+    const user = await User.findOne({ username: taskMaster });
+
+    if (!quest || !user) return res.status(404).json({ message: "Data invalid" });
+    if (quest.status !== 'open') return res.status(400).json({ message: "Quest already taken" });
+    if (quest.postedBy !== taskMaster) return res.status(403).json({ message: "Not your quest" });
+
+    // LOGIC: Adjust Wallet based on Bid vs Original Reward
+    const originalEscrow = quest.reward;
+    const finalPrice = bidAmount;
+
+    if (finalPrice < originalEscrow) {
+        // Refund the difference to Master
+        const refundAmount = originalEscrow - finalPrice;
+        user.balance += refundAmount;
+        await Transaction.create({
+            userId: taskMaster, type: 'credit', 
+            description: `Refund: Saved on '${quest.title}' bid`, 
+            amount: refundAmount, status: 'success'
+        });
+    } else if (finalPrice > originalEscrow) {
+        // Charge the extra to Master
+        const extraAmount = finalPrice - originalEscrow;
+        if (user.balance < extraAmount) return res.status(400).json({ message: "Insufficient balance for this bid" });
+        
+        user.balance -= extraAmount;
+        await Transaction.create({
+            userId: taskMaster, type: 'debit', 
+            description: `Escrow Top-up: '${quest.title}'`, 
+            amount: extraAmount, status: 'success'
+        });
+    }
+    
+    await user.save();
+
+    // Update Quest
+    quest.status = 'active';
+    quest.assignedTo = heroUsername;
+    quest.reward = finalPrice; // Update reward to the bid amount
+    quest.bids = [] as any; // Force clear the array
+    await quest.save();
+
+    res.json({ message: "Bid accepted! Hero assigned.", quest });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 export default router;
