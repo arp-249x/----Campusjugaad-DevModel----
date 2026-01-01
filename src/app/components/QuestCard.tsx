@@ -1,36 +1,38 @@
-import { Clock, MapPin, Coins, Zap, ChevronDown, ChevronUp, Gavel } from "lucide-react";
+import { Clock, MapPin, Coins, Zap, ChevronDown, ChevronUp, Gavel, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
-import { Button } from "./ui/button"; // Assuming you have shadcn button, or use standard html button
 
 // ... (Keep Interfaces same)
 
 export function QuestCard({
   title, description, reward, xp, urgency, deadline, location, 
   highlighted = false, onAccept, isAccepted = false, isMyQuest = false, 
-  currentUser // Pass this prop down from HeroView!
+  currentUser 
 }: any) {
   const [isExpanded, setIsExpanded] = useState(false);
   const [isBidding, setIsBidding] = useState(false);
-  const [bidAmount, setBidAmount] = useState(reward); // Default to current reward
+  const [bidAmount, setBidAmount] = useState(reward); 
 
-  // ... (Keep config object)
   const config = { 
     low: { label: "Chill", color: "#2D7FF9", bg: "bg-[#2D7FF9]/10", border: "border-[#2D7FF9]/30", text: "text-[#2D7FF9]" },
     medium: { label: "Normal", color: "#9D4EDD", bg: "bg-[#9D4EDD]/10", border: "border-[#9D4EDD]/30", text: "text-[#9D4EDD]" },
     urgent: { label: "URGENT", color: "#FF4800", bg: "bg-[#FF4800]/10", border: "border-[#FF4800]/30", text: "text-[#FF4800]" },
-  }[urgency];
+  }[urgency as "low" | "medium" | "urgent"];
 
   const handleBidSubmit = (e: any) => {
     e.stopPropagation();
-    // Call the parent handler with the bid amount
     onAccept?.(bidAmount); 
     setIsBidding(false);
+  };
+
+  const handleDirectAccept = (e: any) => {
+    e.stopPropagation();
+    onAccept?.(); // No arguments = Standard Accept at original price
   };
 
   return (
     <div onClick={() => setIsExpanded(!isExpanded)} className={`relative bg-[var(--campus-card-bg)] rounded-2xl p-6 border transition-all hover:scale-[1.01] hover:shadow-xl group cursor-pointer ${highlighted ? "border-[#FFD700]" : "border-[var(--campus-border)]"}`}>
       
-      {/* ... (Keep Header, Description, Meta Info same as before) ... */}
+      {/* Header */}
       <div className="flex items-start justify-between mb-3">
         <h3 className="text-[var(--campus-text-primary)] pr-4 font-semibold text-lg leading-tight">{title}</h3>
         <span className={`px-3 py-1 rounded-full text-xs ${config.bg} ${config.border} ${config.text} border shrink-0 font-medium`}>{config.label}</span>
@@ -45,7 +47,6 @@ export function QuestCard({
         {location && <div className="flex items-center gap-1"><MapPin className="w-3.5 h-3.5" /><span>{location}</span></div>}
       </div>
 
-
       {/* Footer / Action Area */}
       <div className="flex items-center justify-between pt-4 border-t border-[var(--campus-border)] mt-auto">
         <div className="flex items-center gap-3">
@@ -55,9 +56,21 @@ export function QuestCard({
           </div>
         </div>
 
-        {/* BIDDING LOGIC */}
-        <div onClick={(e) => e.stopPropagation()}>
-            {isBidding ? (
+        {/* 👇 UPDATED BUTTON LOGIC */}
+        <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
+            
+            {/* STATE 1: MY QUEST OR ALREADY ACCEPTED */}
+            {(isMyQuest || isAccepted) ? (
+                <button
+                    disabled
+                    className="px-6 py-2 rounded-lg font-medium text-sm bg-[var(--campus-border)] text-[var(--campus-text-secondary)] cursor-not-allowed"
+                >
+                    {isMyQuest ? "Your Quest" : "Accepted"}
+                </button>
+            ) : 
+            
+            /* STATE 2: BIDDING INPUT OPEN */
+            isBidding ? (
                 <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
                     <input 
                         type="number" 
@@ -65,6 +78,7 @@ export function QuestCard({
                         onChange={(e) => setBidAmount(parseInt(e.target.value))}
                         className="w-20 px-2 py-1 rounded bg-[var(--campus-bg)] border border-[var(--campus-border)] text-sm focus:outline-none focus:border-[#2D7FF9]"
                         autoFocus
+                        onClick={(e) => e.stopPropagation()}
                     />
                     <button 
                         onClick={handleBidSubmit}
@@ -80,21 +94,25 @@ export function QuestCard({
                     </button>
                 </div>
             ) : (
-                <button
-                    onClick={() => {
-                        if(!isMyQuest && !isAccepted) setIsBidding(true);
-                    }}
-                    disabled={isAccepted || isMyQuest}
-                    className={`px-6 py-2 rounded-lg transition-all font-medium text-sm shadow-md flex items-center gap-2 ${
-                        isAccepted || isMyQuest
-                        ? "bg-[var(--campus-border)] text-[var(--campus-text-secondary)] cursor-not-allowed"
-                        : "bg-[#2D7FF9] text-white hover:bg-[#2D7FF9]/80"
-                    }`}
-                >
-                    {isMyQuest ? "Your Quest" : isAccepted ? "Accepted" : (
-                        <> <Gavel className="w-4 h-4" /> Place Bid </>
-                    )}
-                </button>
+                
+            /* STATE 3: SHOW BOTH BUTTONS */
+                <div className="flex items-center gap-2">
+                    {/* BUTTON A: ACCEPT NOW */}
+                    <button
+                        onClick={handleDirectAccept}
+                        className="px-4 py-2 rounded-lg transition-all font-medium text-sm bg-[#00F5D4] text-black hover:bg-[#00F5D4]/80 flex items-center gap-1"
+                    >
+                        <CheckCircle2 className="w-4 h-4" /> Accept
+                    </button>
+
+                    {/* BUTTON B: PLACE BID */}
+                    <button
+                        onClick={() => setIsBidding(true)}
+                        className="px-4 py-2 rounded-lg transition-all font-medium text-sm bg-[var(--campus-surface)] border border-[var(--campus-border)] text-[var(--campus-text-primary)] hover:bg-[var(--campus-border)] flex items-center gap-1"
+                    >
+                        <Gavel className="w-4 h-4" /> Bid
+                    </button>
+                </div>
             )}
         </div>
       </div>
