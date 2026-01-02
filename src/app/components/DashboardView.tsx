@@ -1,5 +1,5 @@
-import { Clock, CheckCircle2, AlertCircle, Package, Trash2, Star, MessageSquare } from "lucide-react";
-import { useState } from "react";
+import { Clock, CheckCircle2, Package, Trash2, Star, MessageSquare, ArrowUpDown, Filter } from "lucide-react";
+import { useState, useMemo } from "react";
 import { Button } from "./ui/button";
 
 interface DashboardViewProps {
@@ -9,7 +9,8 @@ interface DashboardViewProps {
   postedQuests: any[];
   onCancelQuest: (id: string) => void;
   onRateHero: (questId: string, rating: number) => void;
-  onOpenChat: (quest: any) => void; // For active quests
+  onOpenChat: (quest: any) => void; 
+  hasUnread?: boolean;
 }
 
 export function DashboardView({ 
@@ -19,12 +20,10 @@ export function DashboardView({
   postedQuests,
   onCancelQuest,
   onRateHero,
-  onOpenChat
+  onOpenChat,
+  hasUnread
 }: DashboardViewProps) {
   
-  const [ratingModalOpen, setRatingModalOpen] = useState<string | null>(null);
-
-  // Helper to accept a bid
   const handleAcceptBid = async (questId: string, heroUsername: string, bidAmount: number) => {
     try {
         const res = await fetch(`/api/quests/${questId}/accept-bid`, {
@@ -38,7 +37,7 @@ export function DashboardView({
         });
         if (res.ok) {
             alert("Bid Accepted! Hero assigned."); 
-            window.location.reload(); // Refresh to show active status
+            window.location.reload(); 
         } else {
             const err = await res.json();
             alert(err.message || "Failed to accept bid");
@@ -74,14 +73,14 @@ export function DashboardView({
            <div className="space-y-6">
               <h2 className="text-xl font-bold text-[var(--campus-text-primary)]">Current Status</h2>
               
-              {/* Active Quest Card (WITH OTP) */}
+              {/* Active Quest Card */}
               {activeQuest ? (
                  <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/40 p-5 rounded-2xl relative overflow-hidden">
                     <div className="absolute top-2 right-2 text-xs font-bold bg-[#2D7FF9] text-white px-2 py-1 rounded">ACTIVE</div>
                     <h3 className="font-bold text-lg text-[var(--campus-text-primary)] mb-1">{activeQuest.title}</h3>
                     <p className="text-sm text-[var(--campus-text-secondary)] mb-3">{activeQuest.description}</p>
                     
-                    {/* OTP SECTION: Only show if I posted it */}
+                    {/* OTP SECTION */}
                     {currentUser.username === activeQuest.postedBy ? (
                         <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
                             <span className="text-sm text-[var(--campus-text-secondary)]">Share OTP with Hero:</span>
@@ -101,14 +100,17 @@ export function DashboardView({
                         <div className="flex items-center gap-1 text-green-400">
                             <Clock className="w-4 h-4"/> In Progress
                         </div>
-                        {/* CHAT BUTTON */}
                         <Button 
                             variant="ghost" 
                             size="sm" 
-                            className="text-[var(--campus-text-primary)] hover:bg-white/10"
+                            className="text-[var(--campus-text-primary)] hover:bg-white/10 relative"
                             onClick={() => onOpenChat(activeQuest)}
                         >
-                            <MessageSquare className="w-4 h-4 mr-2" /> Chat
+                            <MessageSquare className="w-4 h-4 mr-2" /> 
+                            Chat
+                            {hasUnread && (
+                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border border-[var(--campus-card-bg)] rounded-full animate-bounce"></span>
+                            )}
                         </Button>
                     </div>
                  </div>
@@ -131,15 +133,13 @@ export function DashboardView({
                                     <p className="text-xs text-[var(--campus-text-secondary)]">Reward: ₹{q.reward}</p>
                                  </div>
                                  <span className={`text-xs px-2 py-1 rounded ${
-                                    q.status === 'open' ? 'bg-yellow-500/20 text-yellow-500' : 
-                                    q.status === 'active' ? 'bg-blue-500/20 text-blue-500' : 
-                                    'bg-green-500/20 text-green-500'
+                                    q.status === 'open' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-blue-500/20 text-blue-500'
                                  }`}>
                                     {q.status.toUpperCase()}
                                  </span>
                              </div>
 
-                             {/* CANCEL BUTTON (Only if Open) */}
+                             {/* Cancel Button */}
                              {q.status === 'open' && (
                                 <div className="flex justify-end mt-2">
                                     <button 
@@ -151,30 +151,9 @@ export function DashboardView({
                                 </div>
                              )}
 
-                             {/* BIDS SECTION (Only for Open Quests) */}
+                             {/* 👇 NEW BID LIST COMPONENT with Sorting */}
                              {q.status === 'open' && q.bids && q.bids.length > 0 && (
-                                 <div className="mt-3 pt-3 border-t border-[var(--campus-border)]">
-                                     <p className="text-xs font-bold text-[var(--campus-text-secondary)] mb-2">INCOMING BIDS ({q.bids.length})</p>
-                                     <div className="space-y-2">
-                                         {q.bids.map((bid: any, idx: number) => (
-                                             <div key={idx} className="flex items-center justify-between bg-[var(--campus-bg)] p-2 rounded-lg border border-[var(--campus-border)]">
-                                                 <div className="text-sm">
-                                                     <span className="text-[var(--campus-text-primary)] font-medium">@{bid.heroUsername}</span>
-                                                     <span className="text-[var(--campus-text-secondary)] ml-2">offers</span>
-                                                 </div>
-                                                 <div className="flex items-center gap-3">
-                                                     <span className="text-[#00F5D4] font-bold">₹{bid.amount}</span>
-                                                     <button 
-                                                         onClick={() => handleAcceptBid(q._id, bid.heroUsername, bid.amount)}
-                                                         className="bg-green-500/20 hover:bg-green-500/30 text-green-500 text-xs px-3 py-1.5 rounded-md transition-colors font-bold"
-                                                     >
-                                                         Accept
-                                                     </button>
-                                                 </div>
-                                             </div>
-                                         ))}
-                                     </div>
-                                 </div>
+                                 <BidList bids={q.bids} onAccept={(hero: string, amt: number) => handleAcceptBid(q._id, hero, amt)} />
                              )}
                           </div>
                        ))}
@@ -236,6 +215,89 @@ export function DashboardView({
       </div>
     </div>
   );
+}
+
+// 👇 NEW: Separated BidList Component with Sorting
+function BidList({ bids, onAccept }: any) {
+    const [sortBy, setSortBy] = useState<'time' | 'rating' | 'lowest' | 'highest'>('time');
+
+    // 1. Stable Aliases: Calculate distinct bidders once to keep "Hero 1" stable
+    const uniqueBidders = useMemo(() => {
+        return Array.from(new Set(bids.map((b: any) => b.heroUsername)));
+    }, [bids]);
+
+    // 2. Prepare Data (Add Alias & Sort)
+    const sortedBids = useMemo(() => {
+        const withAlias = bids.map((bid: any) => ({
+            ...bid,
+            alias: `Hero ${uniqueBidders.indexOf(bid.heroUsername) + 1}`
+        }));
+
+        return withAlias.sort((a: any, b: any) => {
+            switch(sortBy) {
+                case 'rating': return (b.rating || 0) - (a.rating || 0); // High Rating First
+                case 'lowest': return a.amount - b.amount; // Cheap First
+                case 'highest': return b.amount - a.amount; // Expensive First
+                case 'time': default: return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(); // Newest First
+            }
+        });
+    }, [bids, sortBy, uniqueBidders]);
+
+    return (
+        <div className="mt-3 pt-3 border-t border-[var(--campus-border)] animate-in slide-in-from-top-2">
+            <div className="flex justify-between items-center mb-2">
+                <p className="text-xs font-bold text-[var(--campus-text-secondary)]">INCOMING BIDS ({bids.length})</p>
+                
+                {/* SORT CONTROLS */}
+                <div className="relative">
+                    <select 
+                        value={sortBy} 
+                        onChange={(e) => setSortBy(e.target.value as any)}
+                        className="appearance-none text-xs bg-[var(--campus-bg)] border border-[var(--campus-border)] rounded pl-2 pr-6 py-1 text-[var(--campus-text-secondary)] focus:border-[#2D7FF9] outline-none cursor-pointer"
+                    >
+                        <option value="time">Newest</option>
+                        <option value="rating">Best Rating</option>
+                        <option value="lowest">Cheapest</option>
+                        <option value="highest">Highest Pay</option>
+                    </select>
+                    <ArrowUpDown className="absolute right-1.5 top-1/2 -translate-y-1/2 w-3 h-3 text-[var(--campus-text-secondary)] pointer-events-none" />
+                </div>
+            </div>
+
+            <div className="space-y-2 max-h-[200px] overflow-y-auto pr-1 custom-scrollbar">
+                {sortedBids.map((bid: any, idx: number) => (
+                    <div key={idx} className="flex items-center justify-between bg-[var(--campus-bg)] p-2 rounded-lg border border-[var(--campus-border)] hover:border-[#2D7FF9]/30 transition-colors">
+                        <div className="flex flex-col">
+                            <div className="text-sm flex items-center gap-2">
+                                <span className="text-[var(--campus-text-primary)] font-bold">{bid.alias}</span>
+                                
+                                {/* RATING BADGE */}
+                                <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
+                                    (bid.rating || 5) >= 4.5 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-[var(--campus-border)] text-[var(--campus-text-secondary)]'
+                                }`}>
+                                    <Star className="w-3 h-3 fill-current" />
+                                    <span>{bid.rating ? bid.rating.toFixed(1) : "5.0"}</span>
+                                </div>
+                            </div>
+                            <span className="text-[var(--campus-text-secondary)] text-xs mt-0.5">
+                                {new Date(bid.timestamp).toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                            </span>
+                        </div>
+                        
+                        <div className="flex items-center gap-3">
+                            <span className="text-[#00F5D4] font-bold">₹{bid.amount}</span>
+                            <button 
+                                onClick={() => onAccept(bid.heroUsername, bid.amount)}
+                                className="bg-green-500/20 hover:bg-green-500/30 text-green-500 text-xs px-3 py-1.5 rounded-md transition-colors font-bold"
+                            >
+                                Accept
+                            </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
 }
 
 function StatCard({ label, value, icon, color }: any) {

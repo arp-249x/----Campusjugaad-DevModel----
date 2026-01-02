@@ -24,9 +24,12 @@ export function QuestCard({
     setIsBidding(false);
   };
 
+  // 👇 UPDATED: Added Confirmation Dialog
   const handleDirectAccept = (e: any) => {
     e.stopPropagation();
-    onAccept?.(); // No arguments = Standard Accept at original price
+    if (confirm(`Are you sure you want to accept "${title}" for ₹${reward}?`)) {
+        onAccept?.(); 
+    }
   };
 
   return (
@@ -56,10 +59,8 @@ export function QuestCard({
           </div>
         </div>
 
-        {/* 👇 UPDATED BUTTON LOGIC */}
         <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
             
-            {/* STATE 1: MY QUEST OR ALREADY ACCEPTED */}
             {(isMyQuest || isAccepted) ? (
                 <button
                     disabled
@@ -67,10 +68,7 @@ export function QuestCard({
                 >
                     {isMyQuest ? "Your Quest" : "Accepted"}
                 </button>
-            ) : 
-            
-            /* STATE 2: BIDDING INPUT OPEN */
-            isBidding ? (
+            ) : isBidding ? (
                 <div className="flex items-center gap-2 animate-in fade-in slide-in-from-right-4">
                     <input 
                         type="number" 
@@ -94,18 +92,13 @@ export function QuestCard({
                     </button>
                 </div>
             ) : (
-                
-            /* STATE 3: SHOW BOTH BUTTONS */
                 <div className="flex items-center gap-2">
-                    {/* BUTTON A: ACCEPT NOW */}
                     <button
                         onClick={handleDirectAccept}
                         className="px-4 py-2 rounded-lg transition-all font-medium text-sm bg-[#00F5D4] text-black hover:bg-[#00F5D4]/80 flex items-center gap-1"
                     >
                         <CheckCircle2 className="w-4 h-4" /> Accept
                     </button>
-
-                    {/* BUTTON B: PLACE BID */}
                     <button
                         onClick={() => setIsBidding(true)}
                         className="px-4 py-2 rounded-lg transition-all font-medium text-sm bg-[var(--campus-surface)] border border-[var(--campus-border)] text-[var(--campus-text-primary)] hover:bg-[var(--campus-border)] flex items-center gap-1"
