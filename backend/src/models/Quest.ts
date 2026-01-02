@@ -15,10 +15,11 @@ const QuestSchema = new mongoose.Schema({
   assignedTo: { type: String, default: null },
   ratingGiven: { type: Boolean, default: false },
   
-  // 👇 NEW: Store the bids here
+  
   bids: [{
     heroUsername: { type: String, required: true },
     amount: { type: Number, required: true },
+    rating: { type: Number, default: 0 },
     timestamp: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });

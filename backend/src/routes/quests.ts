@@ -244,18 +244,25 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
 
 // ... (previous imports)
 
-// [NEW] 10. PLACE A BID (Hero)
+// 10. PLACE A BID (Hero)
 router.post('/:id/bid', async (req: Request, res: Response) => {
   try {
     const { heroUsername, amount } = req.body;
     const quest = await Quest.findById(req.params.id);
+    const hero = await User.findOne({ username: heroUsername });
 
     if (!quest) return res.status(404).json({ message: "Quest not found" });
+    if (!hero) return res.status(404).json({ message: "Hero not found" }); // Safety check
     if (quest.status !== 'open') return res.status(400).json({ message: "Bidding is closed" });
     if (quest.postedBy === heroUsername) return res.status(403).json({ message: "Cannot bid on your own quest" });
 
-    // Add bid to array
-    quest.bids.push({ heroUsername, amount, timestamp: new Date() });
+    quest.bids.push({ 
+        heroUsername, 
+        amount, 
+        rating: hero.rating || 5.0, // Default to 5.0 if new
+        timestamp: new Date() 
+    });
+    
     await quest.save();
 
     res.json({ message: "Bid placed successfully!", quest });
