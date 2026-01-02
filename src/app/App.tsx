@@ -70,6 +70,9 @@ function AppContent() {
   const previousQuestsRef = useRef<Record<string, string>>({}); 
   const previousBidCountsRef = useRef<Record<string, number>>({});
   const lastMessageCountRef = useRef(0);
+
+  // Fix 1: Ref to track initial load
+  const isFirstLoadRef = useRef(true);
   
   // --- APP STATE ---
   const [activeTab, setActiveTab] = useState("post");
@@ -141,6 +144,7 @@ function AppContent() {
     } catch (e) { console.error("Txn fetch error", e); }
   };
 
+  // --- CORRECTED FETCH QUESTS FUNCTION ---
   const fetchQuests = async () => {
     try {
       const url = currentUser 
@@ -151,33 +155,37 @@ function AppContent() {
       const data = await res.json();
       setQuests(data);
       
-      // NOTIFICATION LOGIC (Status Changes & NEW BIDS)
       if (currentUser) {
-          data.forEach((q: Quest) => {
-              if (q.postedBy === currentUser.username) {
-                  const questId = q._id || '';
-                  
-                  // 1. Check for Status Change (Acceptance)
-                  const prevStatus = previousQuestsRef.current[questId];
-                  if (prevStatus === 'open' && q.status === 'active') {
-                      addNotification("Quest Accepted!", `Hero @${q.assignedTo} picked up "${q.title}"`, "success");
-                      showToast("success", "Quest Accepted", `Hero @${q.assignedTo} is on it!`);
-                  }
+          // Fix 2: Skip notifications on first load
+          if (!isFirstLoadRef.current) {
+            data.forEach((q: Quest) => {
+                if (q.postedBy === currentUser.username) {
+                    const questId = q._id || '';
+                    
+                    // 1. Check for Status Change
+                    const prevStatus = previousQuestsRef.current[questId];
+                    if (prevStatus === 'open' && q.status === 'active') {
+                        addNotification("Quest Accepted!", `Hero @${q.assignedTo} picked up "${q.title}"`, "success");
+                        showToast("success", "Quest Accepted", `Hero @${q.assignedTo} is on it!`);
+                    }
 
-                  // 2. Check for NEW BIDS
-                  const prevBidCount = previousBidCountsRef.current[questId] || 0;
-                  const currentBidCount = q.bids ? q.bids.length : 0;
+                    // 2. Check for NEW BIDS (Only if quest is OPEN)
+                    if (q.status === 'open') {
+                        const prevBidCount = previousBidCountsRef.current[questId] || 0;
+                        const currentBidCount = q.bids ? q.bids.length : 0;
 
-                  if (currentBidCount > prevBidCount) {
-                      const newBid = q.bids![q.bids!.length - 1];
-                      const uniqueBidders = Array.from(new Set(q.bids!.map((b: any) => b.heroUsername)));
-                      const heroAlias = `Hero ${uniqueBidders.indexOf(newBid.heroUsername) + 1}`;
+                        if (currentBidCount > prevBidCount) {
+                            const newBid = q.bids![q.bids!.length - 1];
+                            const uniqueBidders = Array.from(new Set(q.bids!.map((b: any) => b.heroUsername)));
+                            const heroAlias = `Hero ${uniqueBidders.indexOf(newBid.heroUsername) + 1}`;
 
-                      addNotification("New Bid Received", `${heroAlias} offered ₹${newBid.amount} for "${q.title}"`);
-                      showToast("info", "New Bid!", `${heroAlias}: ₹${newBid.amount}`);
-                  }
-              }
-          });
+                            addNotification("New Bid Received", `${heroAlias} offered ₹${newBid.amount} for "${q.title}"`);
+                            showToast("info", "New Bid!", `${heroAlias}: ₹${newBid.amount}`);
+                        }
+                    }
+                }
+            });
+          }
 
           // Update Refs
           const newStatusMap: any = {};
@@ -189,8 +197,12 @@ function AppContent() {
           });
           previousQuestsRef.current = newStatusMap;
           previousBidCountsRef.current = newBidMap;
+
+          // Mark first load as complete
+          isFirstLoadRef.current = false;
       }
       
+      // Update Active Quest & History
       if (currentUser) {
          const ongoingQuest = data.find((q: Quest) => 
             q.assignedTo === currentUser.username && q.status === 'active'
@@ -199,7 +211,7 @@ function AppContent() {
             setActiveQuest(ongoingQuest);
             setChatQuestId(ongoingQuest._id || ongoingQuest.id);
          }
-         // Update Activity Log
+         
          const myHistory = data.filter((q: Quest) => 
             (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) && 
             ['completed', 'expired'].includes(q.status)
@@ -212,6 +224,8 @@ function AppContent() {
   // Main Sync Loop
   useEffect(() => {
     if (currentUser) {
+        // Fix 3: Reset first load flag on user change
+        isFirstLoadRef.current = true;
         fetchCurrentUser();
         fetchTransactions();
         fetchQuests();
