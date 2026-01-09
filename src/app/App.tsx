@@ -15,7 +15,7 @@ import { NotificationPanel } from "./components/NotificationPanel";
 import { Footer } from "./components/Footer";
 import { ChatInterface } from "./components/ChatInterface";
 import { AuthPage } from "./components/AuthPage";
-import { HelpCircle } from "lucide-react";
+import { HelpCircle, Loader2 } from "lucide-react"; // Added Loader2 icon
 
 // --- TYPES ---
 export interface Quest {
@@ -71,7 +71,7 @@ function AppContent() {
   const previousBidCountsRef = useRef<Record<string, number>>({});
   const lastMessageCountRef = useRef(0);
 
-  // Fix 1: Ref to track initial load
+  // Ref to track initial load
   const isFirstLoadRef = useRef(true);
   
   // --- APP STATE ---
@@ -80,6 +80,9 @@ function AppContent() {
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [quests, setQuests] = useState<Quest[]>([]); 
   
+  // 👇 NEW: Loading State for Actions (Prevents Double Clicks)
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
   const [showMobileMenu, setShowMobileMenu] = useState(false);
   const [showWalletOverlay, setShowWalletOverlay] = useState(false);
   const [showNotificationPanel, setShowNotificationPanel] = useState(false);
@@ -144,7 +147,6 @@ function AppContent() {
     } catch (e) { console.error("Txn fetch error", e); }
   };
 
-  // --- CORRECTED FETCH QUESTS FUNCTION ---
   const fetchQuests = async () => {
     try {
       const url = currentUser 
@@ -156,7 +158,7 @@ function AppContent() {
       setQuests(data);
       
       if (currentUser) {
-          // Fix 2: Skip notifications on first load
+          // Skip notifications on first load
           if (!isFirstLoadRef.current) {
             data.forEach((q: Quest) => {
                 if (q.postedBy === currentUser.username) {
@@ -224,7 +226,7 @@ function AppContent() {
   // Main Sync Loop
   useEffect(() => {
     if (currentUser) {
-        // Fix 3: Reset first load flag on user change
+        // Reset first load flag on user change
         isFirstLoadRef.current = true;
         fetchCurrentUser();
         fetchTransactions();
@@ -341,13 +343,17 @@ function AppContent() {
     setIsChatOpen(false);
   };
 
-  // --- API ACTIONS ---
+  // --- API ACTIONS (NOW WITH LOADING LOCKS) ---
 
   const addQuest = async (newQuestData: any) => {
+    if (isSubmitting) return; // Prevent double click
+
     if (balance < newQuestData.reward) {
       showToast("error", "Insufficient Balance", "Add money to your wallet.");
       return;
     }
+    
+    setIsSubmitting(true);
     try {
       const response = await fetch('/api/quests', {
         method: 'POST',
@@ -369,17 +375,20 @@ function AppContent() {
       }
     } catch (error) {
       showToast("error", "Network Error", "Is the backend running?");
+    } finally {
+      setIsSubmitting(false); // Unlock
     }
   };
 
   const handlePlaceBid = async (quest: Quest, bidAmount: number) => {
-    if (!currentUser) return;
+    if (!currentUser || isSubmitting) return;
     
-    // Block Guests
     if (currentUser.username === 'guest') {
         showToast("error", "Access Denied", "Please sign up to place bids!");
         return;
     }
+    
+    setIsSubmitting(true);
     try {
         const res = await fetch(`/api/quests/${quest._id}/bid`, {
             method: 'POST',
@@ -398,9 +407,13 @@ function AppContent() {
             showToast("error", "Error", err.message);
         }
     } catch (e) { console.error(e); }
+    finally { setIsSubmitting(false); }
   };
 
   const handleAcceptQuest = async (quest: Quest) => {
+    if (isSubmitting) return;
+    
+    setIsSubmitting(true);
     try {
       const res = await fetch(`/api/quests/${quest._id}/accept`, {
           method: 'PUT',
@@ -415,12 +428,19 @@ function AppContent() {
         setChatMessages([]);
         setIsChatOpen(true);
         fetchQuests();
+      } else {
+        // Handle race condition specific error
+        showToast("error", "Oops!", data.message || "Quest unavailable.");
+        fetchQuests(); // Refresh data immediately
       }
     } catch (err) { /* ... */ }
+    finally { setIsSubmitting(false); }
   };
 
   const handleCompleteQuest = async (otpInput: string) => {
-    if (!activeQuest || !currentUser) return;
+    if (!activeQuest || !currentUser || isSubmitting) return;
+    
+    setIsSubmitting(true);
     try {
       const res = await fetch(`/api/quests/${activeQuest._id}/complete`, {
         method: 'POST',
@@ -441,6 +461,7 @@ function AppContent() {
         showToast("error", "Invalid OTP", "Ask the Task Master for the correct code.");
       }
     } catch (err) { showToast("error", "Error", "Connection failed"); }
+    finally { setIsSubmitting(false); }
   };
 
   const handleDropQuest = async () => {
@@ -645,7 +666,7 @@ function AppContent() {
                         setHasUnread(false);
                         setIsChatOpen(true);
                     }}
-                    // 👇 Logic: 'animate-bounce' makes it jump. If no unread, it is static.
+                    // 'animate-bounce' makes it jump. If no unread, it is static.
                     className={`relative bg-[#2D7FF9] text-white border border-white/20 p-3 rounded-full shadow-lg hover:bg-[#2D7FF9]/80 transition-all group ${hasUnread ? 'animate-bounce' : ''}`}
                     title="Open Chat"
                 >
@@ -677,6 +698,16 @@ function AppContent() {
               setIsChatOpen(!isChatOpen);
           }}
         />
+      )}
+
+      {/* GLOBAL SPINNER OVERLAY (Shows when locked) */}
+      {isSubmitting && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+            <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-2xl flex items-center space-x-3">
+                <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+                <span className="text-gray-700 dark:text-gray-200 font-medium">Processing...</span>
+            </div>
+        </div>
       )}
 
       <ChatInterface 
