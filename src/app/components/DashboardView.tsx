@@ -1,4 +1,6 @@
-import { Clock, CheckCircle2, Package, Trash2, Star, MessageSquare, ArrowUpDown, Filter } from "lucide-react";
+// src/app/components/DashboardView.tsx
+
+import { Clock, CheckCircle2, Package, Trash2, Star, MessageSquare, ArrowUpDown, Filter, AlertTriangle } from "lucide-react"; // Added AlertTriangle
 import { useState, useMemo } from "react";
 import { Button } from "./ui/button";
 
@@ -10,6 +12,7 @@ interface DashboardViewProps {
   onCancelQuest: (id: string) => void;
   onRateHero: (questId: string, rating: number) => void;
   onOpenChat: (quest: any) => void; 
+  onDispute: (quest: any) => void; // New prop
   hasUnread?: boolean;
 }
 
@@ -21,9 +24,13 @@ export function DashboardView({
   onCancelQuest,
   onRateHero,
   onOpenChat,
+  onDispute, // Destructured
   hasUnread
 }: DashboardViewProps) {
   
+  // NEW: State for focusing on a history item
+  const [focusedQuestId, setFocusedQuestId] = useState<string | null>(null);
+
   const handleAcceptBid = async (questId: string, heroUsername: string, bidAmount: number) => {
     try {
         const res = await fetch(`/api/quests/${questId}/accept-bid`, {
@@ -69,18 +76,15 @@ export function DashboardView({
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
            
-           {/* Left Column: Active & Posted */}
            <div className="space-y-6">
               <h2 className="text-xl font-bold text-[var(--campus-text-primary)]">Current Status</h2>
               
-              {/* Active Quest Card */}
               {activeQuest ? (
                  <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/40 p-5 rounded-2xl relative overflow-hidden">
                     <div className="absolute top-2 right-2 text-xs font-bold bg-[#2D7FF9] text-white px-2 py-1 rounded">ACTIVE</div>
                     <h3 className="font-bold text-lg text-[var(--campus-text-primary)] mb-1">{activeQuest.title}</h3>
                     <p className="text-sm text-[var(--campus-text-secondary)] mb-3">{activeQuest.description}</p>
                     
-                    {/* OTP SECTION */}
                     {currentUser.username === activeQuest.postedBy ? (
                         <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
                             <span className="text-sm text-[var(--campus-text-secondary)]">Share OTP with Hero:</span>
@@ -100,18 +104,29 @@ export function DashboardView({
                         <div className="flex items-center gap-1 text-green-400">
                             <Clock className="w-4 h-4"/> In Progress
                         </div>
-                        <Button 
-                            variant="ghost" 
-                            size="sm" 
-                            className="text-[var(--campus-text-primary)] hover:bg-white/10 relative"
-                            onClick={() => onOpenChat(activeQuest)}
-                        >
-                            <MessageSquare className="w-4 h-4 mr-2" /> 
-                            Chat
-                            {hasUnread && (
-                                <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border border-[var(--campus-card-bg)] rounded-full animate-bounce"></span>
-                            )}
-                        </Button>
+                        <div className="flex gap-2">
+                             {/* DISPUTE BUTTON IN ACTIVE CARD */}
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-red-500 hover:bg-red-500/10"
+                                onClick={() => onDispute(activeQuest)}
+                            >
+                                <AlertTriangle className="w-4 h-4 mr-1" /> Report
+                            </Button>
+                            <Button 
+                                variant="ghost" 
+                                size="sm" 
+                                className="text-[var(--campus-text-primary)] hover:bg-white/10 relative"
+                                onClick={() => onOpenChat(activeQuest)}
+                            >
+                                <MessageSquare className="w-4 h-4 mr-2" /> 
+                                Chat
+                                {hasUnread && (
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border border-[var(--campus-card-bg)] rounded-full animate-bounce"></span>
+                                )}
+                            </Button>
+                        </div>
                     </div>
                  </div>
               ) : (
@@ -120,7 +135,6 @@ export function DashboardView({
                  </div>
               )}
 
-              {/* Posted Quests List */}
               <div>
                  <h3 className="text-sm font-bold text-[var(--campus-text-secondary)] uppercase tracking-wider mb-3">Posted by You</h3>
                  {postedQuests.length > 0 ? (
@@ -139,7 +153,6 @@ export function DashboardView({
                                  </span>
                              </div>
 
-                             {/* Cancel Button */}
                              {q.status === 'open' && (
                                 <div className="flex justify-end mt-2">
                                     <button 
@@ -151,7 +164,6 @@ export function DashboardView({
                                 </div>
                              )}
 
-                             {/* 👇 NEW BID LIST COMPONENT with Sorting */}
                              {q.status === 'open' && q.bids && q.bids.length > 0 && (
                                  <BidList bids={q.bids} onAccept={(hero: string, amt: number) => handleAcceptBid(q._id, hero, amt)} />
                              )}
@@ -164,14 +176,22 @@ export function DashboardView({
               </div>
            </div>
 
-           {/* Right Column: History */}
            <div>
               <h2 className="text-xl font-bold text-[var(--campus-text-primary)] mb-4">Recent Activity</h2>
               <div className="bg-[var(--campus-card-bg)] border border-[var(--campus-border)] rounded-2xl overflow-hidden">
                  {activityLog.length > 0 ? (
                     <div className="divide-y divide-[var(--campus-border)]">
                        {activityLog.map((quest, i) => (
-                          <div key={i} className="p-4 flex flex-col gap-2 hover:bg-[var(--campus-surface)] transition-colors">
+                          <div 
+                            key={i} 
+                            // TOGGLE FOCUS ON CLICK
+                            onClick={() => setFocusedQuestId(focusedQuestId === quest._id ? null : quest._id)}
+                            className={`p-4 flex flex-col gap-2 transition-all cursor-pointer ${
+                                focusedQuestId === quest._id 
+                                    ? 'bg-[var(--campus-surface)] border-l-4 border-red-500' 
+                                    : 'hover:bg-[var(--campus-surface)]'
+                            }`}
+                          >
                              <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
                                    <div className="bg-green-500/10 p-2 rounded-full text-green-500">
@@ -182,17 +202,40 @@ export function DashboardView({
                                       <p className="text-xs text-[var(--campus-text-secondary)]">Hero: {quest.assignedTo}</p>
                                    </div>
                                 </div>
-                                <span className="font-bold text-[#00F5D4]">+₹{quest.reward}</span>
+                                <div className="text-right">
+                                    <span className="font-bold text-[#00F5D4] block">+₹{quest.reward}</span>
+                                    <span className="text-[10px] text-[var(--campus-text-secondary)] capitalize">{quest.status}</span>
+                                </div>
                              </div>
+
+                             {/* DISPUTE BUTTON REVEALED ON FOCUS */}
+                             {focusedQuestId === quest._id && (
+                                <div className="flex items-center justify-between mt-2 pt-2 border-t border-[var(--campus-border)] animate-in fade-in slide-in-from-top-1">
+                                    <span className="text-xs text-[var(--campus-text-secondary)] italic">Something wrong?</span>
+                                    <Button 
+                                        variant="outline" 
+                                        size="sm" 
+                                        className="bg-red-500/10 text-red-500 border-red-500/20 hover:bg-red-500 hover:text-white text-xs h-8"
+                                        onClick={(e) => {
+                                            e.stopPropagation();
+                                            onDispute(quest);
+                                        }}
+                                    >
+                                        Raise Dispute
+                                    </Button>
+                                </div>
+                             )}
                              
-                             {/* RATING BUTTON */}
                              {quest.status === 'completed' && !quest.ratingGiven && quest.postedBy === currentUser?.username && (
                                 <div className="flex items-center justify-end gap-2 mt-2">
                                     <span className="text-xs text-[var(--campus-text-secondary)]">Rate Hero:</span>
                                     {[1, 2, 3, 4, 5].map((star) => (
                                         <button 
                                             key={star}
-                                            onClick={() => onRateHero(quest._id, star)}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                onRateHero(quest._id, star);
+                                            }}
                                             className="text-yellow-500 hover:scale-125 transition-transform"
                                         >
                                             <Star className="w-4 h-4 fill-current" />
@@ -217,7 +260,6 @@ export function DashboardView({
   );
 }
 
-// 👇 NEW: Separated BidList Component with Sorting
 function BidList({ bids, onAccept }: any) {
     const [sortBy, setSortBy] = useState<'time' | 'rating' | 'lowest' | 'highest'>('time');
 

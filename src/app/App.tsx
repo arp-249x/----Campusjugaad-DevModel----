@@ -108,7 +108,18 @@ function AppContent() {
     localStorage.setItem("campus_notifications", JSON.stringify(notifications));
   }, [notifications]);
 
-  // --- INITIAL LOAD & WALLET SYNC ---
+  const handleDispute = (quest: any) => {
+    // Current placeholder logic
+    const role = quest.postedBy === currentUser.username ? "Task Master" : "Hero";
+    alert(`Dispute Resolution Center:\nQuest: ${quest.title}\nYour Role: ${role}\nAn admin will be notified.`);
+    
+    addNotification(
+        "Dispute Raised", 
+        `You reported an issue with "${quest.title}". Our admins are looking into it.`, 
+        "warning"
+    );
+};
+
   useEffect(() => {
     const savedUser = localStorage.getItem("campus_jugaad_current_user");
     if (savedUser) {
@@ -618,29 +629,30 @@ function AppContent() {
         )}
         
         {activeTab === "dashboard" && (
-          <DashboardView 
-            currentUser={currentUser} 
-            hasUnread={hasUnread} 
-            activeQuest={
-              activeQuest || 
-              quests.find(q => 
-                (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) 
-                && q.status === 'active'
-              )
-            }
-            activityLog={activityLog}
-            postedQuests={quests.filter(q => q.postedBy === currentUser.username && ['open', 'active', 'completed'].includes(q.status))}
-            onCancelQuest={handleCancelQuest}
-            onRateHero={handleRateHero}
-            onOpenChat={(quest: any) => {
-                setChatQuestId(quest._id);
-                setChatMode('real'); 
-                setHasUnread(false);
-                setChatMessages([]);
-                setIsChatOpen(true);
-            }}
-          />
-        )}
+  <DashboardView 
+    currentUser={currentUser} 
+    hasUnread={hasUnread} 
+    activeQuest={
+      activeQuest || 
+      quests.find(q => 
+        (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) 
+        && q.status === 'active'
+      )
+    }
+    activityLog={activityLog}
+    postedQuests={quests.filter(q => q.postedBy === currentUser.username && ['open', 'active', 'completed'].includes(q.status))}
+    onCancelQuest={handleCancelQuest}
+    onRateHero={handleRateHero}
+    onDispute={handleDispute} // Passed prop
+    onOpenChat={(quest: any) => {
+        setChatQuestId(quest._id);
+        setChatMode('real'); 
+        setHasUnread(false);
+        setChatMessages([]);
+        setIsChatOpen(true);
+    }}
+  />
+)}
         
         {activeTab === "leaderboard" && <LeaderboardView currentUser={currentUser} />}
 
@@ -685,21 +697,21 @@ function AppContent() {
       })()}
 
       {activeQuest && (
-        <ActiveQuestBar 
-          quest={activeQuest}
-          onComplete={handleCompleteQuest}
-          onDismiss={handleDropQuest} 
-          isChatOpen={isChatOpen}
-          hasUnread={hasUnread}
-          onChatToggle={() => {
-              setChatQuestId(activeQuest._id || activeQuest.id || null);
-              setChatMode('real');
-              setHasUnread(false);
-              setIsChatOpen(!isChatOpen);
-          }}
-        />
-      )}
-
+  <ActiveQuestBar 
+    quest={activeQuest}
+    onComplete={handleCompleteQuest}
+    onDismiss={handleDropQuest} 
+    onDispute={handleDispute} // Passed prop
+    isChatOpen={isChatOpen}
+    hasUnread={hasUnread}
+    onChatToggle={() => {
+        setChatQuestId(activeQuest._id || activeQuest.id || null);
+        setChatMode('real');
+        setHasUnread(false);
+        setIsChatOpen(!isChatOpen);
+    }}
+  />
+)}
       {/* GLOBAL SPINNER OVERLAY (Shows when locked) */}
       {isSubmitting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
