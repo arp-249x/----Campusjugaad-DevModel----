@@ -59,6 +59,20 @@ export function Navigation({
         </div>
       </div>
 
+      
+      {user?.isAdmin && (
+          <button 
+              onClick={() => onTabChange("admin")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full transition-all ${
+                  activeTab === "admin" 
+                  ? "bg-red-500 text-white shadow-lg shadow-red-500/20" 
+                  : "text-[var(--campus-text-secondary)] hover:bg-red-500/10 hover:text-red-500"
+              }`}
+          >
+              <span className="font-bold">Admin</span>
+          </button>
+      )}
+
       {/* 3. Right: Actions & Profile */}
       <div className="flex-1 flex items-center justify-end gap-4">
         {/* Wallet Pill */}

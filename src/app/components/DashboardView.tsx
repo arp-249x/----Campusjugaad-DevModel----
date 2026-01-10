@@ -1,6 +1,6 @@
 // src/app/components/DashboardView.tsx
 
-import { Clock, CheckCircle2, Package, Trash2, Star, MessageSquare, ArrowUpDown, Filter, AlertTriangle } from "lucide-react"; // Added AlertTriangle
+import { Clock, CheckCircle2, Package, Trash2, Star, MessageSquare, ArrowUpDown, AlertTriangle } from "lucide-react"; 
 import { useState, useMemo } from "react";
 import { Button } from "./ui/button";
 
@@ -12,7 +12,7 @@ interface DashboardViewProps {
   onCancelQuest: (id: string) => void;
   onRateHero: (questId: string, rating: number) => void;
   onOpenChat: (quest: any) => void; 
-  onDispute: (quest: any) => void; // New prop
+  onDispute: (quest: any) => void; 
   hasUnread?: boolean;
 }
 
@@ -24,11 +24,10 @@ export function DashboardView({
   onCancelQuest,
   onRateHero,
   onOpenChat,
-  onDispute, // Destructured
+  onDispute, 
   hasUnread
 }: DashboardViewProps) {
   
-  // NEW: State for focusing on a history item
   const [focusedQuestId, setFocusedQuestId] = useState<string | null>(null);
 
   const handleAcceptBid = async (questId: string, heroUsername: string, bidAmount: number) => {
@@ -80,55 +79,67 @@ export function DashboardView({
               <h2 className="text-xl font-bold text-[var(--campus-text-primary)]">Current Status</h2>
               
               {activeQuest ? (
-                 <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/40 p-5 rounded-2xl relative overflow-hidden">
-                    <div className="absolute top-2 right-2 text-xs font-bold bg-[#2D7FF9] text-white px-2 py-1 rounded">ACTIVE</div>
-                    <h3 className="font-bold text-lg text-[var(--campus-text-primary)] mb-1">{activeQuest.title}</h3>
-                    <p className="text-sm text-[var(--campus-text-secondary)] mb-3">{activeQuest.description}</p>
-                    
-                    {currentUser.username === activeQuest.postedBy ? (
-                        <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
-                            <span className="text-sm text-[var(--campus-text-secondary)]">Share OTP with Hero:</span>
-                            <span className="font-mono text-xl font-bold text-[#00F5D4] tracking-widest">
-                                {activeQuest.otp || "******"} 
-                            </span>
-                        </div>
-                    ) : (
-                        <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-lg mb-3">
-                            <p className="text-sm text-yellow-500 text-center">
-                                Ask the <strong>Task Master</strong> for the OTP to complete this quest.
-                            </p>
-                        </div>
-                    )}
-
-                    <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-1 text-green-400">
-                            <Clock className="w-4 h-4"/> In Progress
-                        </div>
-                        <div className="flex gap-2">
-                             {/* DISPUTE BUTTON IN ACTIVE CARD */}
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-red-500 hover:bg-red-500/10"
-                                onClick={() => onDispute(activeQuest)}
-                            >
-                                <AlertTriangle className="w-4 h-4 mr-1" /> Report
-                            </Button>
-                            <Button 
-                                variant="ghost" 
-                                size="sm" 
-                                className="text-[var(--campus-text-primary)] hover:bg-white/10 relative"
-                                onClick={() => onOpenChat(activeQuest)}
-                            >
-                                <MessageSquare className="w-4 h-4 mr-2" /> 
-                                Chat
-                                {hasUnread && (
-                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border border-[var(--campus-card-bg)] rounded-full animate-bounce"></span>
-                                )}
-                            </Button>
+                 activeQuest.status === 'disputed' ? (
+                    <div className="bg-red-500/10 border border-red-500 p-5 rounded-2xl relative animate-in fade-in">
+                        <div className="absolute top-2 right-2 text-xs font-bold bg-red-500 text-white px-2 py-1 rounded">DISPUTED</div>
+                        <h3 className="font-bold text-lg text-red-500 mb-1">{activeQuest.title}</h3>
+                        <p className="text-sm text-[var(--campus-text-secondary)] mb-3">
+                            This quest has been reported. Funds are locked until an admin resolves the issue.
+                        </p>
+                        <div className="flex items-center gap-2 text-sm text-red-400">
+                             <AlertTriangle className="w-4 h-4"/> Under Review
                         </div>
                     </div>
-                 </div>
+                 ) : (
+                    <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/40 p-5 rounded-2xl relative overflow-hidden">
+                        <div className="absolute top-2 right-2 text-xs font-bold bg-[#2D7FF9] text-white px-2 py-1 rounded">ACTIVE</div>
+                        <h3 className="font-bold text-lg text-[var(--campus-text-primary)] mb-1">{activeQuest.title}</h3>
+                        <p className="text-sm text-[var(--campus-text-secondary)] mb-3">{activeQuest.description}</p>
+                        
+                        {currentUser.username === activeQuest.postedBy ? (
+                            <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
+                                <span className="text-sm text-[var(--campus-text-secondary)]">Share OTP with Hero:</span>
+                                <span className="font-mono text-xl font-bold text-[#00F5D4] tracking-widest">
+                                    {activeQuest.otp || "******"} 
+                                </span>
+                            </div>
+                        ) : (
+                            <div className="bg-yellow-500/10 border border-yellow-500/30 p-3 rounded-lg mb-3">
+                                <p className="text-sm text-yellow-500 text-center">
+                                    Ask the <strong>Task Master</strong> for the OTP to complete this quest.
+                                </p>
+                            </div>
+                        )}
+
+                        <div className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-1 text-green-400">
+                                <Clock className="w-4 h-4"/> In Progress
+                            </div>
+                            <div className="flex gap-2">
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-red-500 hover:bg-red-500/10"
+                                    onClick={() => onDispute(activeQuest)}
+                                >
+                                    <AlertTriangle className="w-4 h-4 mr-1" /> Report
+                                </Button>
+                                <Button 
+                                    variant="ghost" 
+                                    size="sm" 
+                                    className="text-[var(--campus-text-primary)] hover:bg-white/10 relative"
+                                    onClick={() => onOpenChat(activeQuest)}
+                                >
+                                    <MessageSquare className="w-4 h-4 mr-2" /> 
+                                    Chat
+                                    {hasUnread && (
+                                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 border border-[var(--campus-card-bg)] rounded-full animate-bounce"></span>
+                                    )}
+                                </Button>
+                            </div>
+                        </div>
+                    </div>
+                 )
               ) : (
                  <div className="border border-dashed border-[var(--campus-border)] rounded-2xl p-6 text-center text-[var(--campus-text-secondary)]">
                     No active quest right now. Go find one!
@@ -146,8 +157,12 @@ export function DashboardView({
                                     <p className="font-medium text-[var(--campus-text-primary)]">{q.title}</p>
                                     <p className="text-xs text-[var(--campus-text-secondary)]">Reward: ₹{q.reward}</p>
                                  </div>
+                                 {/* 👇 BADGE LOGIC: Now handles 'resolved' correctly */}
                                  <span className={`text-xs px-2 py-1 rounded ${
-                                    q.status === 'open' ? 'bg-yellow-500/20 text-yellow-500' : 'bg-blue-500/20 text-blue-500'
+                                    q.status === 'open' ? 'bg-yellow-500/20 text-yellow-500' : 
+                                    q.status === 'disputed' ? 'bg-red-500/20 text-red-500' :
+                                    q.status === 'resolved' ? 'bg-green-500/20 text-green-500' : // Green!
+                                    'bg-blue-500/20 text-blue-500'
                                  }`}>
                                     {q.status.toUpperCase()}
                                  </span>
@@ -184,18 +199,25 @@ export function DashboardView({
                        {activityLog.map((quest, i) => (
                           <div 
                             key={i} 
-                            // TOGGLE FOCUS ON CLICK
                             onClick={() => setFocusedQuestId(focusedQuestId === quest._id ? null : quest._id)}
-                            className={`p-4 flex flex-col gap-2 transition-all cursor-pointer ${
-                                focusedQuestId === quest._id 
-                                    ? 'bg-[var(--campus-surface)] border-l-4 border-red-500' 
-                                    : 'hover:bg-[var(--campus-surface)]'
+                            className={`p-4 flex flex-col gap-2 transition-all cursor-pointer border-l-4 rounded-r-xl mb-2 ${
+                                quest.status === 'disputed' 
+                                    ? 'bg-red-500/10 border-red-500' 
+                                    : quest.status === 'resolved'
+                                    ? 'bg-green-500/10 border-green-500'
+                                    : focusedQuestId === quest._id 
+                                        ? 'bg-[var(--campus-surface)] border-[#2D7FF9]' 
+                                        : 'hover:bg-[var(--campus-surface)] border-transparent'
                             }`}
                           >
                              <div className="flex items-center justify-between">
                                 <div className="flex items-center gap-3">
-                                   <div className="bg-green-500/10 p-2 rounded-full text-green-500">
-                                      <CheckCircle2 className="w-5 h-5" />
+                                   <div className={`p-2 rounded-full ${
+                                       quest.status === 'disputed' ? 'bg-red-500/20 text-red-500' :
+                                       quest.status === 'resolved' ? 'bg-green-500/20 text-green-500' :
+                                       'bg-green-500/10 text-green-500'
+                                   }`}>
+                                      {quest.status === 'disputed' ? <AlertTriangle className="w-5 h-5"/> : <CheckCircle2 className="w-5 h-5" />}
                                    </div>
                                    <div>
                                       <p className="font-medium text-[var(--campus-text-primary)]">{quest.title}</p>
@@ -204,12 +226,18 @@ export function DashboardView({
                                 </div>
                                 <div className="text-right">
                                     <span className="font-bold text-[#00F5D4] block">+₹{quest.reward}</span>
-                                    <span className="text-[10px] text-[var(--campus-text-secondary)] capitalize">{quest.status}</span>
+                                    <span className={`text-[10px] uppercase font-bold ${
+                                        quest.status === 'disputed' ? 'text-red-500' : 
+                                        quest.status === 'resolved' ? 'text-green-500' :
+                                        'text-[var(--campus-text-secondary)]'
+                                    }`}>
+                                        {quest.status}
+                                    </span>
                                 </div>
                              </div>
 
-                             {/* DISPUTE BUTTON REVEALED ON FOCUS */}
-                             {focusedQuestId === quest._id && (
+                             {/* BUTTON LOGIC: Hide if Disputed OR Resolved */}
+                             {focusedQuestId === quest._id && !['disputed', 'resolved'].includes(quest.status) && (
                                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-[var(--campus-border)] animate-in fade-in slide-in-from-top-1">
                                     <span className="text-xs text-[var(--campus-text-secondary)] italic">Something wrong?</span>
                                     <Button 
@@ -223,6 +251,13 @@ export function DashboardView({
                                     >
                                         Raise Dispute
                                     </Button>
+                                </div>
+                             )}
+                             
+                             {/* Display Admin Comment if Resolved */}
+                             {focusedQuestId === quest._id && quest.dispute?.adminComment && (
+                                <div className="mt-2 p-2 bg-black/20 rounded text-xs text-[var(--campus-text-secondary)] border border-[var(--campus-border)]">
+                                    <span className="font-bold text-[var(--campus-text-primary)]">Admin Update:</span> {quest.dispute.adminComment}
                                 </div>
                              )}
                              
@@ -263,12 +298,10 @@ export function DashboardView({
 function BidList({ bids, onAccept }: any) {
     const [sortBy, setSortBy] = useState<'time' | 'rating' | 'lowest' | 'highest'>('time');
 
-    // 1. Stable Aliases: Calculate distinct bidders once to keep "Hero 1" stable
     const uniqueBidders = useMemo(() => {
         return Array.from(new Set(bids.map((b: any) => b.heroUsername)));
     }, [bids]);
 
-    // 2. Prepare Data (Add Alias & Sort)
     const sortedBids = useMemo(() => {
         const withAlias = bids.map((bid: any) => ({
             ...bid,
@@ -277,10 +310,10 @@ function BidList({ bids, onAccept }: any) {
 
         return withAlias.sort((a: any, b: any) => {
             switch(sortBy) {
-                case 'rating': return (b.rating || 0) - (a.rating || 0); // High Rating First
-                case 'lowest': return a.amount - b.amount; // Cheap First
-                case 'highest': return b.amount - a.amount; // Expensive First
-                case 'time': default: return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(); // Newest First
+                case 'rating': return (b.rating || 0) - (a.rating || 0);
+                case 'lowest': return a.amount - b.amount;
+                case 'highest': return b.amount - a.amount;
+                case 'time': default: return new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
             }
         });
     }, [bids, sortBy, uniqueBidders]);
@@ -290,7 +323,6 @@ function BidList({ bids, onAccept }: any) {
             <div className="flex justify-between items-center mb-2">
                 <p className="text-xs font-bold text-[var(--campus-text-secondary)]">INCOMING BIDS ({bids.length})</p>
                 
-                {/* SORT CONTROLS */}
                 <div className="relative">
                     <select 
                         value={sortBy} 
@@ -312,8 +344,6 @@ function BidList({ bids, onAccept }: any) {
                         <div className="flex flex-col">
                             <div className="text-sm flex items-center gap-2">
                                 <span className="text-[var(--campus-text-primary)] font-bold">{bid.alias}</span>
-                                
-                                {/* RATING BADGE */}
                                 <div className={`flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium ${
                                     (bid.rating || 5) >= 4.5 ? 'bg-yellow-500/10 text-yellow-500' : 'bg-[var(--campus-border)] text-[var(--campus-text-secondary)]'
                                 }`}>

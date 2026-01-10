@@ -15,7 +15,9 @@ import { NotificationPanel } from "./components/NotificationPanel";
 import { Footer } from "./components/Footer";
 import { ChatInterface } from "./components/ChatInterface";
 import { AuthPage } from "./components/AuthPage";
-import { HelpCircle, Loader2 } from "lucide-react"; // Added Loader2 icon
+import { HelpCircle, Loader2 } from "lucide-react"; 
+import { DisputeModal } from "./components/DisputeModal";
+import { AdminDashboard } from "./components/AdminDashboard";
 
 // --- TYPES ---
 export interface Quest {
@@ -34,7 +36,7 @@ export interface Quest {
   otp: string;
   postedBy?: string;
   assignedTo?: string;
-  status: "open" | "active" | "completed" | "expired"; 
+  status: "open" | "active" | "completed" | "expired" | "disputed" | "resolved"; 
   ratingGiven?: boolean;
   bids?: any[];
 }
@@ -80,7 +82,7 @@ function AppContent() {
   const [activeQuest, setActiveQuest] = useState<Quest | null>(null);
   const [quests, setQuests] = useState<Quest[]>([]); 
   
-  // 👇 NEW: Loading State for Actions (Prevents Double Clicks)
+  // Loading State for Actions
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [showMobileMenu, setShowMobileMenu] = useState(false);
@@ -95,6 +97,10 @@ function AppContent() {
   const [balance, setBalance] = useState(450);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
 
+  // Dispute State
+  const [isDisputeModalOpen, setIsDisputeModalOpen] = useState(false);
+  const [questToDispute, setQuestToDispute] = useState<Quest | null>(null);
+
   // 1. Load Notifications
   useEffect(() => {
     const savedNotifs = localStorage.getItem("campus_notifications");
@@ -107,18 +113,6 @@ function AppContent() {
   useEffect(() => {
     localStorage.setItem("campus_notifications", JSON.stringify(notifications));
   }, [notifications]);
-
-  const handleDispute = (quest: any) => {
-    // Current placeholder logic
-    const role = quest.postedBy === currentUser.username ? "Task Master" : "Hero";
-    alert(`Dispute Resolution Center:\nQuest: ${quest.title}\nYour Role: ${role}\nAn admin will be notified.`);
-    
-    addNotification(
-        "Dispute Raised", 
-        `You reported an issue with "${quest.title}". Our admins are looking into it.`, 
-        "warning"
-    );
-};
 
   useEffect(() => {
     const savedUser = localStorage.getItem("campus_jugaad_current_user");
@@ -138,6 +132,26 @@ function AppContent() {
             localStorage.setItem("campus_jugaad_current_user", JSON.stringify(freshUser));
         }
     } catch(err) { console.error("Sync failed"); }
+  };
+
+  const handleDispute = (quest: any) => {
+    setQuestToDispute(quest);
+    setIsDisputeModalOpen(true);
+  };
+
+  const submitDispute = async (reason: string) => {
+    if (!questToDispute) return;
+    try {
+      const res = await fetch(`/api/disputes/${questToDispute._id}/raise`, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({ username: currentUser.username, reason })
+      });
+      if (res.ok) {
+        showToast("success", "Dispute Raised", "Admins have been notified.");
+        fetchQuests(); // Refresh to see status change
+      }
+    } catch (err) { console.error(err); }
   };
 
   const fetchTransactions = async () => {
@@ -217,17 +231,24 @@ function AppContent() {
       
       // Update Active Quest & History
       if (currentUser) {
+         // 👇 CORRECTED LOGIC: 'ongoingQuest' is STRICTLY active only.
+         // Disputed quests should NOT block this slot.
          const ongoingQuest = data.find((q: Quest) => 
-            q.assignedTo === currentUser.username && q.status === 'active'
+            (q.assignedTo === currentUser.username || q.postedBy === currentUser.username) && 
+            q.status === 'active' 
          );
+         
          if (ongoingQuest) {
             setActiveQuest(ongoingQuest);
             setChatQuestId(ongoingQuest._id || ongoingQuest.id);
+         } else {
+            setActiveQuest(null);
          }
          
+         // 👇 CORRECTED LOGIC: History includes completed, expired, disputed, and resolved.
          const myHistory = data.filter((q: Quest) => 
             (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) && 
-            ['completed', 'expired'].includes(q.status)
+            ['completed', 'expired', 'disputed', 'resolved'].includes(q.status)
          );
          setActivityLog(myHistory);
       }
@@ -271,12 +292,10 @@ function AppContent() {
                 if (res.ok) {
                     const data = await res.json();
                     
-                    // NEW MESSAGE NOTIFICATION
                     if (data.length > lastMessageCountRef.current) {
                         const lastMsg = data[data.length - 1];
                         
                         if (lastMsg.sender !== currentUser.username && !isChatOpen) {
-                            // ANONYMIZATION LOGIC
                             let senderAlias = "Quest Partner";
                             if (currentActiveQuest) {
                                 if (currentActiveQuest.postedBy === currentUser.username) {
@@ -354,10 +373,10 @@ function AppContent() {
     setIsChatOpen(false);
   };
 
-  // --- API ACTIONS (NOW WITH LOADING LOCKS) ---
+  // --- API ACTIONS ---
 
   const addQuest = async (newQuestData: any) => {
-    if (isSubmitting) return; // Prevent double click
+    if (isSubmitting) return;
 
     if (balance < newQuestData.reward) {
       showToast("error", "Insufficient Balance", "Add money to your wallet.");
@@ -387,7 +406,7 @@ function AppContent() {
     } catch (error) {
       showToast("error", "Network Error", "Is the backend running?");
     } finally {
-      setIsSubmitting(false); // Unlock
+      setIsSubmitting(false);
     }
   };
 
@@ -440,9 +459,8 @@ function AppContent() {
         setIsChatOpen(true);
         fetchQuests();
       } else {
-        // Handle race condition specific error
         showToast("error", "Oops!", data.message || "Quest unavailable.");
-        fetchQuests(); // Refresh data immediately
+        fetchQuests(); 
       }
     } catch (err) { /* ... */ }
     finally { setIsSubmitting(false); }
@@ -616,6 +634,8 @@ function AppContent() {
           user={currentUser}
         />
 
+        {activeTab === "admin" && currentUser?.isAdmin && <AdminDashboard currentUser={currentUser} />}
+
         {activeTab === "post" && <TaskMasterView addQuest={addQuest} balance={balance} />}
         
         {activeTab === "find" && (
@@ -629,30 +649,31 @@ function AppContent() {
         )}
         
         {activeTab === "dashboard" && (
-  <DashboardView 
-    currentUser={currentUser} 
-    hasUnread={hasUnread} 
-    activeQuest={
-      activeQuest || 
-      quests.find(q => 
-        (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) 
-        && q.status === 'active'
-      )
-    }
-    activityLog={activityLog}
-    postedQuests={quests.filter(q => q.postedBy === currentUser.username && ['open', 'active', 'completed'].includes(q.status))}
-    onCancelQuest={handleCancelQuest}
-    onRateHero={handleRateHero}
-    onDispute={handleDispute} // Passed prop
-    onOpenChat={(quest: any) => {
-        setChatQuestId(quest._id);
-        setChatMode('real'); 
-        setHasUnread(false);
-        setChatMessages([]);
-        setIsChatOpen(true);
-    }}
-  />
-)}
+            <DashboardView 
+              currentUser={currentUser} 
+              hasUnread={hasUnread} 
+              // 👇 UPDATED: activeQuest is STRICTLY active only. Disputed/Resolved go to history list.
+              activeQuest={
+                activeQuest || 
+                quests.find(q => 
+                  (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) 
+                  && q.status === 'active'
+                )
+              }
+              activityLog={activityLog}
+              postedQuests={quests.filter(q => q.postedBy === currentUser.username && ['open', 'active', 'completed', 'disputed', 'resolved'].includes(q.status))}
+              onCancelQuest={handleCancelQuest}
+              onRateHero={handleRateHero}
+              onDispute={handleDispute}
+              onOpenChat={(quest: any) => {
+                  setChatQuestId(quest._id);
+                  setChatMode('real'); 
+                  setHasUnread(false);
+                  setChatMessages([]);
+                  setIsChatOpen(true);
+              }}
+            />
+        )}
         
         {activeTab === "leaderboard" && <LeaderboardView currentUser={currentUser} />}
 
@@ -678,13 +699,10 @@ function AppContent() {
                         setHasUnread(false);
                         setIsChatOpen(true);
                     }}
-                    // 'animate-bounce' makes it jump. If no unread, it is static.
                     className={`relative bg-[#2D7FF9] text-white border border-white/20 p-3 rounded-full shadow-lg hover:bg-[#2D7FF9]/80 transition-all group ${hasUnread ? 'animate-bounce' : ''}`}
                     title="Open Chat"
                 >
                     <HelpCircle className="w-6 h-6" />
-                    
-                    {/* Red Dot for Unread Messages */}
                     {hasUnread && (
                         <span className="absolute top-0 right-0 flex h-3 w-3">
                             <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
@@ -697,22 +715,23 @@ function AppContent() {
       })()}
 
       {activeQuest && (
-  <ActiveQuestBar 
-    quest={activeQuest}
-    onComplete={handleCompleteQuest}
-    onDismiss={handleDropQuest} 
-    onDispute={handleDispute} // Passed prop
-    isChatOpen={isChatOpen}
-    hasUnread={hasUnread}
-    onChatToggle={() => {
-        setChatQuestId(activeQuest._id || activeQuest.id || null);
-        setChatMode('real');
-        setHasUnread(false);
-        setIsChatOpen(!isChatOpen);
-    }}
-  />
-)}
-      {/* GLOBAL SPINNER OVERLAY (Shows when locked) */}
+        <ActiveQuestBar 
+            quest={activeQuest}
+            onComplete={handleCompleteQuest}
+            onDismiss={handleDropQuest} 
+            onDispute={handleDispute}
+            isChatOpen={isChatOpen}
+            hasUnread={hasUnread}
+            onChatToggle={() => {
+                setChatQuestId(activeQuest._id || activeQuest.id || null);
+                setChatMode('real');
+                setHasUnread(false);
+                setIsChatOpen(!isChatOpen);
+            }}
+            currentUser={currentUser}
+        />
+      )}
+      
       {isSubmitting && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
             <div className="bg-white dark:bg-gray-800 p-4 rounded-xl shadow-2xl flex items-center space-x-3">
@@ -750,6 +769,13 @@ function AppContent() {
         transactions={transactions}
         onWithdraw={handleWithdraw}
         onAddMoney={handleAddMoney}
+      />
+
+      <DisputeModal 
+        isOpen={isDisputeModalOpen} 
+        onClose={() => setIsDisputeModalOpen(false)} 
+        onSubmit={submitDispute}
+        questTitle={questToDispute?.title || ""}
       />
 
       <NotificationPanel
