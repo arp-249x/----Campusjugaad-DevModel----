@@ -9,9 +9,10 @@ const UserSchema = new mongoose.Schema({
   xp: { type: Number, default: 0 },
   balance: { type: Number, default: 450 },
   joinedAt: { type: Date, default: Date.now },
-  // 👇 NEW: Rating Fields
-  rating: { type: Number, default: 5.0 }, // Average rating (starts at 5)
-  ratingCount: { type: Number, default: 0 }
+  rating: { type: Number, default: 5.0 },
+  ratingCount: { type: Number, default: 0 },
+  // 👇 NEW: Admin Flag
+  isAdmin: { type: Boolean, default: false }
 });
 
 export const User = mongoose.model('User', UserSchema);

@@ -6,6 +6,7 @@ import express, { Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
 import mongoose from 'mongoose';
+import disputeRoutes from './routes/disputes';
 
 // Load environment variables
 dotenv.config();
@@ -38,6 +39,7 @@ app.use('/api/transactions', transactionRoutes);
 app.get('/', (req: Request, res: Response) => {
   res.send('CampusJugaad API is running & DB Connected! 🚀');
 });
+app.use('/api/disputes', disputeRoutes);
 
 // ... routes ...
 

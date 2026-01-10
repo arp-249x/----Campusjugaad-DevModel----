@@ -10,11 +10,20 @@ const QuestSchema = new mongoose.Schema({
   deadline: { type: String, required: true },
   deadlineIso: { type: Date, required: true },
   postedBy: { type: String, required: true },
-  status: { type: String, enum: ['open', 'active', 'completed', 'expired'], default: 'open' },
+  status: { type: String, enum: ['open', 'active', 'completed', 'expired', 'disputed', 'resolved'], default: 'open' },
   otp: { type: String },
   assignedTo: { type: String, default: null },
   ratingGiven: { type: Boolean, default: false },
   
+  dispute: {
+    raisedBy: { type: String }, 
+    reason: { type: String },
+    status: { type: String, enum: ['pending', 'resolved'], default: 'pending' },
+    adminComment: { type: String },
+    createdAt: { type: Date },
+    // 👇 NEW FIELD: To track if money needs to be clawed back
+    previousStatus: { type: String } 
+  },
   
   bids: [{
     heroUsername: { type: String, required: true },
