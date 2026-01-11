@@ -26,13 +26,11 @@ interface Quest {
 interface HeroViewProps {
   quests: Quest[];
   onAcceptQuest?: (quest: Quest) => void;
-  // 👇 1. ADD THIS MISSING PROP DEFINITION
   onPlaceBid?: (quest: Quest, amount: number) => void; 
   activeQuest: any | null;
   currentUser: any;
 }
 
-// 👇 2. ADD onPlaceBid TO DESTRUCTURED PROPS
 export function HeroView({ quests, onAcceptQuest, onPlaceBid, activeQuest, currentUser }: HeroViewProps) {
   const [showToast, setShowToast] = useState(false);
   const [acceptedQuest, setAcceptedQuest] = useState<Quest | null>(null);
@@ -64,7 +62,7 @@ export function HeroView({ quests, onAcceptQuest, onPlaceBid, activeQuest, curre
     return result;
   }, [quests, searchQuery, activeFilter, sortBy]);
 
-  // 👇 3. UPDATE THIS FUNCTION TO HANDLE BIDS
+  // Handling Bids
   const handleAcceptQuest = (quest: Quest, amount?: number) => {
     if (activeQuest) {
         onAcceptQuest?.(quest);
@@ -193,7 +191,6 @@ export function HeroView({ quests, onAcceptQuest, onPlaceBid, activeQuest, curre
                 <div key={index} className="relative group">
                   <QuestCard 
                     {...quest} 
-                    // 👇 THIS IS CRUCIAL: Pass the amount up to the handler
                     onAccept={(amount?: number) => handleAcceptQuest(quest, amount)}
                     isAccepted={activeQuest?.title === quest.title}
                     isMyQuest={isOwner}
