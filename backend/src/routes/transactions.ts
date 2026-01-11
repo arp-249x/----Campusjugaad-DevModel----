@@ -4,7 +4,7 @@ import { User } from '../models/User';
 
 const router = express.Router();
 
-// 👇 HELPER: Fixes floating point errors (e.g. 20.25 - 20.24 = 0.01)
+// Fixes floating point errors
 const roundToTwo = (num: number) => {
     return Math.round((num + Number.EPSILON) * 100) / 100;
 };
@@ -36,7 +36,7 @@ router.post('/add', async (req: Request, res: Response) => {
     const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    // 👇 FIX: Round the result before saving
+    // Round the result before saving
     user.balance = roundToTwo(user.balance + cleanAmount);
     await user.save();
 
@@ -73,7 +73,7 @@ router.post('/withdraw', async (req: Request, res: Response) => {
       return res.status(400).json({ message: "Insufficient balance" });
     }
 
-    // 👇 FIX: Round the result before saving
+    // Round the result before saving
     user.balance = roundToTwo(user.balance - cleanAmount);
     await user.save();
 
@@ -90,5 +90,6 @@ router.post('/withdraw', async (req: Request, res: Response) => {
     res.status(500).json({ message: "Error withdrawing money" });
   }
 });
+
 
 export default router;
