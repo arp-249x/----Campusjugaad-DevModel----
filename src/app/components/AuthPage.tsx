@@ -1,8 +1,9 @@
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, ArrowRight, Sparkles, AlertTriangle, Ghost } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Sparkles, AlertTriangle, Ghost, Mail, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
 
 interface AuthPageProps {
   onLogin: (user: any) => void;
@@ -22,6 +23,11 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
   });
   
   const [error, setError] = useState("");
+  
+  // --- OTP STATES ---
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpInput, setOtpInput] = useState("");
+  const [isSendingOtp, setIsSendingOtp] = useState(false);
   
   // --- PUN LOGIC ---
   const [currentPun, setCurrentPun] = useState(""); 
@@ -62,9 +68,10 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
     }
   };
 
-  // --- UPDATED REGISTER LOGIC (With Backend) ---
-  const handleRegister = async (e: React.FormEvent) => {
+  // --- STEP 1: VALIDATE & SEND OTP ---
+  const handleInitiateRegister = async (e: React.FormEvent) => {
     e.preventDefault();
+    setError("");
     
     // 1. Check for empty fields
     if (!formData.name || !formData.username || !formData.email || !formData.password || !formData.dob) {
@@ -72,59 +79,89 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
       return;
     }
 
-    // 2. AGE VALIDATION LOGIC
+    // 2. DOMAIN VALIDATION (Gmail, Outlook, Yahoo)
+    const allowedDomains = /@(gmail|outlook|yahoo|hotmail|live|icloud)\.com$/i;
+    if (!allowedDomains.test(formData.email)) {
+        setError("Please use a valid provider (Gmail, Outlook, Yahoo, etc.)");
+        return;
+    }
+
+    // 3. AGE VALIDATION
     const birthDate = new Date(formData.dob);
     const today = new Date();
-    
     let age = today.getFullYear() - birthDate.getFullYear();
     const monthDiff = today.getMonth() - birthDate.getMonth();
-    
     if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
       age--;
     }
-
     if (age < 16) {
       setError("You must be at least 16 years old to join CampusJugaad.");
       return;
     }
 
-    // 3. SEND TO BACKEND
+    // 4. SEND OTP REQUEST
+    setIsSendingOtp(true);
     try {
-      // CHANGED: Removed http://localhost:5000
+        const res = await fetch('/api/auth/send-otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email: formData.email })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+            setError(data.message || "Failed to send verification code.");
+        } else {
+            // Success: Open Dialog
+            setShowOtpModal(true);
+        }
+    } catch (err) {
+        setError("Network error. Check internet connection.");
+    } finally {
+        setIsSendingOtp(false);
+    }
+  };
+
+  // --- STEP 2: VERIFY OTP & COMPLETE REGISTER ---
+  const handleVerifyAndRegister = async () => {
+    if (otpInput.length !== 6) {
+        alert("Please enter the 6-digit code.");
+        return;
+    }
+
+    try {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+        // Send form data AND the OTP
+        body: JSON.stringify({ ...formData, otp: otpInput }),
       });
-      // ...
 
       const data = await response.json();
 
       if (!response.ok) {
-        setError(data.message || "Registration failed");
+        alert(data.message || "Registration failed. Invalid OTP?");
         return;
       }
 
-      onLogin(data); // Log in with real data from DB
+      // Success
+      setShowOtpModal(false);
+      onLogin(data); 
     } catch (err) {
-      console.error(err);
-      setError("Cannot connect to server. Is backend running?");
+      alert("Connection failed. Please try again.");
     }
   };
 
-  // --- UPDATED LOGIN LOGIC (With Backend) ---
+  // --- LOGIN LOGIC (Unchanged) ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // ...
     try {
-      // CHANGED: Removed http://localhost:5000
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email: formData.email, password: formData.password }),
       });
-      // ...
 
       const data = await response.json();
 
@@ -132,10 +169,8 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
         setError(data.message || "Login failed");
         return;
       }
-
       onLogin(data);
     } catch (err) {
-      console.error(err);
       setError("Cannot connect to server. Is backend running?");
     }
   };
@@ -161,7 +196,8 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
             <Sparkles className="w-6 h-6 text-[#F72585] animate-spin-slow" />
           </div>
 
-          <form onSubmit={isRegistering ? handleRegister : handleLogin} className="space-y-4">
+          {/* FORM */}
+          <form onSubmit={isRegistering ? handleInitiateRegister : handleLogin} className="space-y-4">
             
             <div className="h-6 text-center text-sm font-medium text-[#2D7FF9] transition-all duration-300">
               {currentPun || "Ready?"}
@@ -209,7 +245,7 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
               <Label className="text-[var(--campus-text-secondary)]">Email Address</Label>
               <Input 
                 type="email" 
-                placeholder="student@college.edu" 
+                placeholder="student@gmail.com" 
                 className="bg-[var(--campus-bg)] border-[var(--campus-border)] text-[var(--campus-text-primary)]"
                 value={formData.email}
                 onChange={(e) => handleInputChange("email", e.target.value)}
@@ -233,8 +269,13 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
 
             {error && <p className="text-red-500 text-sm text-center font-medium animate-pulse">{error}</p>}
 
-            <Button className="w-full bg-gradient-to-r from-[#2D7FF9] to-[#9D4EDD] hover:opacity-90 transition-opacity h-12 text-lg font-bold shadow-lg text-white">
-              {isRegistering ? "Register Account" : "Login"} <ArrowRight className="ml-2 w-5 h-5" />
+            <Button 
+                className="w-full bg-gradient-to-r from-[#2D7FF9] to-[#9D4EDD] hover:opacity-90 transition-opacity h-12 text-lg font-bold shadow-lg text-white"
+                disabled={isSendingOtp}
+            >
+              {isRegistering 
+                ? (isSendingOtp ? <><Loader2 className="w-5 h-5 animate-spin mr-2" /> Sending Code...</> : <>Verify & Register <ArrowRight className="ml-2 w-5 h-5" /></>) 
+                : "Login"} 
             </Button>
           </form>
 
@@ -270,10 +311,56 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
            </p>
         </div>
       </div>
+
+      {/* --- OTP DIALOG --- */}
+      <Dialog open={showOtpModal} onOpenChange={setShowOtpModal}>
+        <DialogContent className="bg-[var(--campus-card-bg)] border-[var(--campus-border)] text-[var(--campus-text-primary)] sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex flex-col items-center gap-2 text-center">
+                <div className="w-12 h-12 bg-[#2D7FF9]/20 rounded-full flex items-center justify-center text-[#2D7FF9] mb-2">
+                    <Mail className="w-6 h-6" />
+                </div>
+                Check your Inbox
+            </DialogTitle>
+          </DialogHeader>
+          
+          <div className="py-4 space-y-4 text-center">
+            <p className="text-sm text-[var(--campus-text-secondary)]">
+              We sent a 6-digit code to <br/> <span className="font-bold text-[var(--campus-text-primary)]">{formData.email}</span>
+            </p>
+            
+            <div className="flex justify-center">
+              <Input
+                type="text"
+                maxLength={6}
+                placeholder="0 0 0 0 0 0"
+                className="text-center text-3xl tracking-[0.5em] h-16 w-64 font-mono uppercase border-[var(--campus-border)] focus:ring-[#2D7FF9]"
+                value={otpInput}
+                onChange={(e) => {
+                    // Allow only numbers
+                    if (/^\d*$/.test(e.target.value)) {
+                        setOtpInput(e.target.value);
+                    }
+                }}
+              />
+            </div>
+            <p className="text-xs text-[var(--campus-text-secondary)]">
+                Didn't receive it? <button className="text-[#2D7FF9] hover:underline" onClick={handleInitiateRegister}>Resend</button>
+            </p>
+          </div>
+
+          <DialogFooter className="sm:justify-center">
+            <Button 
+              onClick={handleVerifyAndRegister}
+              disabled={otpInput.length !== 6}
+              className="bg-[#00F5D4] text-black hover:bg-[#00F5D4]/80 w-full sm:w-auto min-w-[200px] font-bold"
+            >
+              Verify Code
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
     </div>
   );
-
 }
-
-
-
