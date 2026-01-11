@@ -5,6 +5,9 @@ import { Transaction } from '../models/Transaction';
 
 const router = express.Router();
 
+// 👇 HELPER: Fixes floating point errors (e.g. 20.25 - 20.24 = 0.01)
+const roundToTwo = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
+
 // 1. RAISE A DISPUTE
 router.post('/:id/raise', async (req: Request, res: Response) => {
   try {
@@ -75,13 +78,15 @@ router.post('/:id/resolve', async (req: Request, res: Response) => {
           if (hero.balance < quest.reward) {
               // Note: In production, handle negative balance logic here
           }
-          hero.balance -= quest.reward;
+          // 👇 APPLY ROUNDING
+          hero.balance = roundToTwo(hero.balance - quest.reward);
           hero.xp -= quest.xp; 
           await hero.save();
           await Transaction.create({ userId: hero.username, type: 'debit', amount: quest.reward, description: `Dispute Clawback: ${quest.title}`, status: 'success' });
       }
 
-      poster.balance += quest.reward;
+      // 👇 APPLY ROUNDING
+      poster.balance = roundToTwo(poster.balance + quest.reward);
       await poster.save();
       await Transaction.create({ userId: poster.username, type: 'credit', amount: quest.reward, description: `Dispute Refund: ${quest.title}`, status: 'success' });
       
@@ -91,31 +96,36 @@ router.post('/:id/resolve', async (req: Request, res: Response) => {
     } else if (resolution === 'pay_hero') {
       // CASE B: Pay Hero
       if (!wasAlreadyPaid) {
-          hero.balance += quest.reward;
+          // 👇 APPLY ROUNDING
+          hero.balance = roundToTwo(hero.balance + quest.reward);
           hero.xp += quest.xp;
           await hero.save();
           await Transaction.create({ userId: hero.username, type: 'credit', amount: quest.reward, description: `Dispute Settlement: ${quest.title}`, status: 'success' });
       }
 
-      // 👇 THE FIX: Mark as 'resolved' (Green), NOT 'completed' (Blue)
+      // Mark as 'resolved' (Green), NOT 'completed' (Blue)
       quest.status = 'resolved'; 
       quest.dispute!.adminComment = "Resolved: Funds released to Hero";
 
     } else if (resolution === 'split') {
       // CASE C: 50/50 Split
-      const splitAmount = Math.floor(quest.reward / 2);
+      // 👇 APPLY ROUNDING to the split amount itself
+      const splitAmount = roundToTwo(quest.reward / 2);
 
       if (wasAlreadyPaid) {
-          hero.balance -= splitAmount;
+          // 👇 APPLY ROUNDING
+          hero.balance = roundToTwo(hero.balance - splitAmount);
           await hero.save();
           await Transaction.create({ userId: hero.username, type: 'debit', amount: splitAmount, description: `Dispute Split (Return): ${quest.title}`, status: 'success' });
 
-          poster.balance += splitAmount;
+          // 👇 APPLY ROUNDING
+          poster.balance = roundToTwo(poster.balance + splitAmount);
           await poster.save();
           await Transaction.create({ userId: poster.username, type: 'credit', amount: splitAmount, description: `Dispute Split (Refund): ${quest.title}`, status: 'success' });
       } else {
-          poster.balance += splitAmount;
-          hero.balance += splitAmount;
+          // 👇 APPLY ROUNDING
+          poster.balance = roundToTwo(poster.balance + splitAmount);
+          hero.balance = roundToTwo(hero.balance + splitAmount);
           await poster.save();
           await hero.save();
           await Transaction.create({ userId: poster.username, type: 'credit', amount: splitAmount, description: `Dispute Split`, status: 'success' });

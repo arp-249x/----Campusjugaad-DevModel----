@@ -4,13 +4,17 @@ import { User } from '../models/User';
 
 const router = express.Router();
 
+// 👇 HELPER: Fixes floating point errors (e.g. 20.25 - 20.24 = 0.01)
+const roundToTwo = (num: number) => {
+    return Math.round((num + Number.EPSILON) * 100) / 100;
+};
+
 // 1. GET TRANSACTIONS
 router.get('/', async (req: Request, res: Response) => {
   try {
     const { username } = req.query;
     if (!username) return res.status(400).json({ message: "Username required" });
 
-    // Fetch transactions from DB, newest first
     const transactions = await Transaction.find({ userId: username }).sort({ createdAt: -1 });
     res.json(transactions);
   } catch (error) {
@@ -23,17 +27,24 @@ router.post('/add', async (req: Request, res: Response) => {
   try {
     const { username, amount } = req.body;
     
+    // Ensure amount is valid and rounded
+    const cleanAmount = roundToTwo(parseFloat(amount));
+    if (isNaN(cleanAmount) || cleanAmount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+    }
+
     const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    user.balance += amount;
+    // 👇 FIX: Round the result before saving
+    user.balance = roundToTwo(user.balance + cleanAmount);
     await user.save();
 
     const newTxn = await Transaction.create({
       userId: username,
       type: 'credit',
       description: 'Wallet Recharge',
-      amount: amount,
+      amount: cleanAmount,
       status: 'success'
     });
 
@@ -48,21 +59,29 @@ router.post('/withdraw', async (req: Request, res: Response) => {
   try {
     const { username, amount } = req.body;
 
+    // Ensure amount is valid and rounded
+    const cleanAmount = roundToTwo(parseFloat(amount));
+    if (isNaN(cleanAmount) || cleanAmount <= 0) {
+        return res.status(400).json({ message: "Invalid amount" });
+    }
+
     const user = await User.findOne({ username });
     if (!user) return res.status(404).json({ message: "User not found" });
 
-    if (user.balance < amount) {
+    // Check balance
+    if (user.balance < cleanAmount) {
       return res.status(400).json({ message: "Insufficient balance" });
     }
 
-    user.balance -= amount;
+    // 👇 FIX: Round the result before saving
+    user.balance = roundToTwo(user.balance - cleanAmount);
     await user.save();
 
     const newTxn = await Transaction.create({
       userId: username,
       type: 'debit',
       description: 'Withdrawal',
-      amount: amount,
+      amount: cleanAmount,
       status: 'success'
     });
 
