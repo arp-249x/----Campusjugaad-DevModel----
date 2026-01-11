@@ -11,8 +11,9 @@ const UserSchema = new mongoose.Schema({
   joinedAt: { type: Date, default: Date.now },
   rating: { type: Number, default: 5.0 },
   ratingCount: { type: Number, default: 0 },
-  // 👇 NEW: Admin Flag
+  // Admin Flag
   isAdmin: { type: Boolean, default: false }
 });
+
 
 export const User = mongoose.model('User', UserSchema);
