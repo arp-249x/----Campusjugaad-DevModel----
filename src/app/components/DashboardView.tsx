@@ -1,6 +1,4 @@
-// src/app/components/DashboardView.tsx
-
-import { Clock, CheckCircle2, Package, Trash2, Star, MessageSquare, ArrowUpDown, AlertTriangle } from "lucide-react"; 
+import { Clock, CheckCircle2, Package, Trash2, Star, MessageSquare, ArrowUpDown, AlertTriangle, Calendar } from "lucide-react"; // Added Calendar
 import { useState, useMemo } from "react";
 import { Button } from "./ui/button";
 
@@ -94,7 +92,13 @@ export function DashboardView({
                     <div className="bg-gradient-to-r from-[#2D7FF9]/20 to-[#9D4EDD]/20 border border-[#2D7FF9]/40 p-5 rounded-2xl relative overflow-hidden">
                         <div className="absolute top-2 right-2 text-xs font-bold bg-[#2D7FF9] text-white px-2 py-1 rounded">ACTIVE</div>
                         <h3 className="font-bold text-lg text-[var(--campus-text-primary)] mb-1">{activeQuest.title}</h3>
-                        <p className="text-sm text-[var(--campus-text-secondary)] mb-3">{activeQuest.description}</p>
+                        <p className="text-sm text-[var(--campus-text-secondary)] mb-1">{activeQuest.description}</p>
+                        
+                        {/* 👇 UPDATED: Added Deadline */}
+                        <div className="flex items-center gap-2 mb-4 text-xs text-[var(--campus-text-secondary)]">
+                            <Calendar className="w-3 h-3 text-[#2D7FF9]" />
+                            <span>Deadline: <span className="text-[var(--campus-text-primary)]">{activeQuest.deadline}</span></span>
+                        </div>
                         
                         {currentUser.username === activeQuest.postedBy ? (
                             <div className="bg-black/20 p-3 rounded-lg flex items-center justify-between mb-3">
@@ -146,6 +150,7 @@ export function DashboardView({
                  </div>
               )}
 
+              {/* ... Rest of the file (Posted by You, etc.) remains unchanged ... */}
               <div>
                  <h3 className="text-sm font-bold text-[var(--campus-text-secondary)] uppercase tracking-wider mb-3">Posted by You</h3>
                  {postedQuests.length > 0 ? (
@@ -157,11 +162,10 @@ export function DashboardView({
                                     <p className="font-medium text-[var(--campus-text-primary)]">{q.title}</p>
                                     <p className="text-xs text-[var(--campus-text-secondary)]">Reward: ₹{q.reward}</p>
                                  </div>
-                                 {/* 👇 BADGE LOGIC: Now handles 'resolved' correctly */}
                                  <span className={`text-xs px-2 py-1 rounded ${
                                     q.status === 'open' ? 'bg-yellow-500/20 text-yellow-500' : 
                                     q.status === 'disputed' ? 'bg-red-500/20 text-red-500' :
-                                    q.status === 'resolved' ? 'bg-green-500/20 text-green-500' : // Green!
+                                    q.status === 'resolved' ? 'bg-green-500/20 text-green-500' :
                                     'bg-blue-500/20 text-blue-500'
                                  }`}>
                                     {q.status.toUpperCase()}
@@ -236,7 +240,6 @@ export function DashboardView({
                                 </div>
                              </div>
 
-                             {/* BUTTON LOGIC: Hide if Disputed OR Resolved */}
                              {focusedQuestId === quest._id && !['disputed', 'resolved'].includes(quest.status) && (
                                 <div className="flex items-center justify-between mt-2 pt-2 border-t border-[var(--campus-border)] animate-in fade-in slide-in-from-top-1">
                                     <span className="text-xs text-[var(--campus-text-secondary)] italic">Something wrong?</span>
@@ -254,7 +257,6 @@ export function DashboardView({
                                 </div>
                              )}
                              
-                             {/* Display Admin Comment if Resolved */}
                              {focusedQuestId === quest._id && quest.dispute?.adminComment && (
                                 <div className="mt-2 p-2 bg-black/20 rounded text-xs text-[var(--campus-text-secondary)] border border-[var(--campus-border)]">
                                     <span className="font-bold text-[var(--campus-text-primary)]">Admin Update:</span> {quest.dispute.adminComment}
@@ -295,6 +297,7 @@ export function DashboardView({
   );
 }
 
+// ... BidList and StatCard functions remain unchanged below ...
 function BidList({ bids, onAccept }: any) {
     const [sortBy, setSortBy] = useState<'time' | 'rating' | 'lowest' | 'highest'>('time');
 

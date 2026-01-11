@@ -1,4 +1,4 @@
-import { CheckCircle, MessageSquare, ChevronUp, ChevronDown, AlertTriangle } from "lucide-react";
+import { CheckCircle, MessageSquare, ChevronUp, ChevronDown, AlertTriangle, Calendar } from "lucide-react"; // Added Calendar
 import { useState } from "react";
 import { motion } from "motion/react";
 import {
@@ -17,8 +17,8 @@ interface Quest {
   reward: number;
   deadline: string;
   status?: string;
-  postedBy?: string; // Added to track ownership
-  otp?: string;      // Added to show OTP to owner
+  postedBy?: string; 
+  otp?: string;      
 }
 
 interface ActiveQuestBarProps {
@@ -28,7 +28,7 @@ interface ActiveQuestBarProps {
   onDispute: (quest: any) => void;
   isChatOpen: boolean;
   onChatToggle: () => void;
-  currentUser: any; // 👈 NEW PROP
+  currentUser: any; 
   hasUnread?: boolean;
 }
 
@@ -39,7 +39,7 @@ export function ActiveQuestBar({
   onDispute,
   isChatOpen, 
   onChatToggle,
-  currentUser, // Destructured
+  currentUser, 
   hasUnread
 }: ActiveQuestBarProps) {
   const [isExpanded, setIsExpanded] = useState(false);
@@ -54,7 +54,6 @@ export function ActiveQuestBar({
     }
   };
 
-  // Check if the current user is the one who posted the quest
   const isTaskMaster = currentUser?.username === quest.postedBy;
 
   return (
@@ -66,18 +65,26 @@ export function ActiveQuestBar({
         className="fixed bottom-20 md:bottom-8 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[600px] bg-[var(--campus-card-bg)] backdrop-blur-xl border border-[var(--campus-border)] rounded-2xl shadow-2xl z-40 overflow-hidden"
       >
         <div className="p-4 flex items-center justify-between bg-gradient-to-r from-[#2D7FF9]/10 to-[#9D4EDD]/10">
-          <div onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer flex-1">
-            <h3 className="font-semibold text-[var(--campus-text-primary)] flex items-center gap-2 text-sm md:text-base">
+          <div onClick={() => setIsExpanded(!isExpanded)} className="cursor-pointer flex-1 min-w-0 pr-2">
+            <h3 className="font-semibold text-[var(--campus-text-primary)] flex items-center gap-2 text-sm md:text-base truncate">
               {quest.title}
-              {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronUp className="w-4 h-4" />}
+              {isExpanded ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronUp className="w-4 h-4 shrink-0" />}
             </h3>
-            <p className="text-xs text-[var(--campus-text-secondary)]">
-              Reward: <span className="text-[#00F5D4]">₹{quest.reward}</span>
-              {isTaskMaster && <span className="ml-2 opacity-70">(You are Task Master)</span>}
-            </p>
+            
+            {/* 👇 UPDATED: Added Deadline with responsive wrapping */}
+            <div className="text-xs text-[var(--campus-text-secondary)] flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
+              <span>Reward: <span className="text-[#00F5D4] font-bold">₹{quest.reward}</span></span>
+              
+              <div className="flex items-center gap-1">
+                <Calendar className="w-3 h-3" />
+                <span>Due: <span className="text-[var(--campus-text-primary)]">{quest.deadline}</span></span>
+              </div>
+
+              {isTaskMaster && <span className="opacity-70 italic hidden sm:inline">(You are Task Master)</span>}
+            </div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 shrink-0">
              {/* Dispute Button */}
              <button
               onClick={() => onDispute(quest)}
@@ -102,7 +109,6 @@ export function ActiveQuestBar({
               )}
             </button>
 
-            {/* 👇 LOGIC FIX: Show OTP to Task Master, "Complete" Button to Hero */}
             {isTaskMaster ? (
                 <div className="hidden md:flex flex-col items-end px-3 py-1 bg-black/20 rounded-lg border border-[#00F5D4]/30">
                   <span className="text-[10px] text-[var(--campus-text-secondary)] uppercase tracking-wider">Share OTP</span>
@@ -122,7 +128,7 @@ export function ActiveQuestBar({
           </div>
         </div>
         
-        {/* Mobile View for OTP (Shows when expanded if screen is small) */}
+        {/* Mobile View for OTP */}
         {isTaskMaster && isExpanded && (
            <div className="md:hidden bg-black/20 p-2 text-center border-t border-[var(--campus-border)]">
               <p className="text-xs text-[var(--campus-text-secondary)] mb-1">Share this OTP with the Hero:</p>
@@ -131,7 +137,7 @@ export function ActiveQuestBar({
         )}
       </motion.div>
 
-      {/* OTP Modal (Only reachable by Hero) */}
+      {/* OTP Modal */}
       <Dialog open={showOtpModal} onOpenChange={setShowOtpModal}>
         <DialogContent className="bg-[var(--campus-card-bg)] border-[var(--campus-border)] text-[var(--campus-text-primary)]">
           <DialogHeader>

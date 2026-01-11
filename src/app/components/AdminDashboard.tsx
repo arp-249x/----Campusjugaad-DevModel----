@@ -38,13 +38,14 @@ export function AdminDashboard({ currentUser }: { currentUser: any }) {
           ) : (
               <div className="space-y-4">
                   {disputes.map((d) => (
-                      <div key={d._id} className="bg-[var(--campus-card-bg)] border border-red-500/30 p-6 rounded-xl shadow-lg">
-                          <div className="flex justify-between items-start mb-4">
+                      <div key={d._id} className="bg-[var(--campus-card-bg)] border border-red-500/30 p-4 md:p-6 rounded-xl shadow-lg">
+                          {/* Header: Stack vertically on mobile, row on desktop */}
+                          <div className="flex flex-col md:flex-row justify-between items-start mb-4 gap-2 md:gap-0">
                               <div>
                                   <h3 className="font-bold text-lg text-[var(--campus-text-primary)]">{d.title}</h3>
                                   <p className="text-sm text-[var(--campus-text-secondary)]">Reward: ₹{d.reward}</p>
                               </div>
-                              <span className="bg-red-500/20 text-red-500 text-xs px-2 py-1 rounded font-bold uppercase">Disputed</span>
+                              <span className="bg-red-500/20 text-red-500 text-xs px-2 py-1 rounded font-bold uppercase self-start md:self-auto">Disputed</span>
                           </div>
 
                           <div className="bg-[var(--campus-surface)] p-4 rounded-lg mb-4">
@@ -54,19 +55,21 @@ export function AdminDashboard({ currentUser }: { currentUser: any }) {
                               <p className="text-[var(--campus-text-primary)] italic">"{d.dispute?.reason}"</p>
                           </div>
 
-                          <div className="flex items-center justify-between gap-4 text-sm text-[var(--campus-text-secondary)] mb-4">
+                          {/* Info Row: Stack on mobile */}
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 sm:gap-4 text-sm text-[var(--campus-text-secondary)] mb-6">
                               <span>Task Master: <strong>{d.postedBy}</strong></span>
                               <span>Hero: <strong>{d.assignedTo}</strong></span>
                           </div>
 
-                          <div className="grid grid-cols-3 gap-2">
-                              <Button variant="outline" onClick={() => handleResolve(d._id, 'refund_poster')} className="border-green-500 text-green-500 hover:bg-green-500/10">
+                          {/* Button Grid: 1 column on mobile, 3 columns on tablet+ */}
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                              <Button variant="outline" onClick={() => handleResolve(d._id, 'refund_poster')} className="border-green-500 text-green-500 hover:bg-green-500/10 justify-center h-auto py-2">
                                   <Banknote className="w-4 h-4 mr-2" /> Refund Master
                               </Button>
-                              <Button variant="outline" onClick={() => handleResolve(d._id, 'pay_hero')} className="border-blue-500 text-blue-500 hover:bg-blue-500/10">
+                              <Button variant="outline" onClick={() => handleResolve(d._id, 'pay_hero')} className="border-blue-500 text-blue-500 hover:bg-blue-500/10 justify-center h-auto py-2">
                                   <UserCheck className="w-4 h-4 mr-2" /> Pay Hero
                               </Button>
-                              <Button variant="outline" onClick={() => handleResolve(d._id, 'split')} className="border-orange-500 text-orange-500 hover:bg-orange-500/10">
+                              <Button variant="outline" onClick={() => handleResolve(d._id, 'split')} className="border-orange-500 text-orange-500 hover:bg-orange-500/10 justify-center h-auto py-2">
                                   <Split className="w-4 h-4 mr-2" /> 50/50 Split
                               </Button>
                           </div>

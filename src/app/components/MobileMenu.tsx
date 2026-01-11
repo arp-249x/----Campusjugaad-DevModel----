@@ -1,4 +1,4 @@
-import { X, LogOut, Wallet } from "lucide-react";
+import { X, LogOut, Wallet, ShieldCheck } from "lucide-react"; // Added ShieldCheck icon
 import { Avatar, AvatarFallback, AvatarImage } from "./ui/avatar";
 import { ThemeToggle } from "./ThemeToggle";
 
@@ -7,8 +7,8 @@ interface MobileMenuProps {
   onClose: () => void;
   activeTab: string;
   onTabChange: (tab: string) => void;
-  user?: any; // Added
-  onLogout?: () => void; // Added
+  user?: any; 
+  onLogout?: () => void; 
 }
 
 export function MobileMenu({ isOpen, onClose, activeTab, onTabChange, user, onLogout }: MobileMenuProps) {
@@ -58,6 +58,24 @@ export function MobileMenu({ isOpen, onClose, activeTab, onTabChange, user, onLo
             {tab.charAt(0).toUpperCase() + tab.slice(1)}
           </button>
         ))}
+
+        {/* 👇 UPDATED: Admin Button for Mobile */}
+        {user?.isAdmin && (
+            <button
+                onClick={() => {
+                  onTabChange("admin");
+                  onClose();
+                }}
+                className={`w-full text-left px-4 py-4 rounded-xl text-lg font-medium transition-colors flex items-center gap-2 ${
+                  activeTab === "admin"
+                    ? "bg-red-500/10 text-red-500"
+                    : "text-[var(--campus-text-secondary)] hover:bg-[var(--campus-surface)]"
+                }`}
+            >
+                <ShieldCheck className="w-5 h-5" />
+                Admin Dashboard
+            </button>
+        )}
 
         <div className="h-px bg-[var(--campus-border)] my-4" />
 
