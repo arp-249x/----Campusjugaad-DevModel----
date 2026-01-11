@@ -2,7 +2,7 @@ import express, { Request, Response } from 'express';
 import { Quest } from '../models/Quest';
 import { User } from '../models/User';
 import { Transaction } from '../models/Transaction';
-import nodemailer from 'nodemailer'; // 👈 Import Nodemailer
+import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
 dotenv.config();
@@ -49,7 +49,6 @@ router.post('/:id/raise', async (req: Request, res: Response) => {
 
     if (!quest) return res.status(400).json({ message: "Cannot dispute this quest." });
 
-    // --- 👇 PRIVACY-FOCUSED EMAIL BRIDGE ---
     const taskMaster = await User.findOne({ username: quest.postedBy });
     const hero = await User.findOne({ username: quest.assignedTo });
 
@@ -58,7 +57,7 @@ router.post('/:id/raise', async (req: Request, res: Response) => {
         const disputeId = quest._id.toString();
         const subjectLine = `[DISPUTE: ${disputeId}] Action Required: ${quest.title}`;
         
-        // This ID forces email clients to group these messages
+        //forces email clients to group messages
         const threadId = `<dispute-${disputeId}@campusjugaad.com>`;
 
         const commonBody = `
@@ -84,7 +83,7 @@ Our Admin team will review the evidence and issue a resolution.
         await transporter.sendMail({
             from: 'Campus Jugaad Support <noreply@campusjugaad.com>',
             to: taskMaster.email,
-            bcc: adminEmail, // Admin gets a silent copy
+            bcc: adminEmail, // Admin gets a copy
             replyTo: adminEmail, // Replies go to Admin
             subject: subjectLine,
             text: commonBody,
@@ -99,7 +98,7 @@ Our Admin team will review the evidence and issue a resolution.
         await transporter.sendMail({
             from: 'Campus Jugaad Support <noreply@campusjugaad.com>',
             to: hero.email,
-            bcc: adminEmail, // Admin gets a silent copy
+            bcc: adminEmail, // Admin gets a copy
             replyTo: adminEmail, // Replies go to Admin
             subject: subjectLine,
             text: commonBody,
@@ -110,7 +109,6 @@ Our Admin team will review the evidence and issue a resolution.
             }
         });
     }
-    // --- 👆 END EMAIL LOGIC ---
 
     res.json({ message: "Dispute raised. Check your email for instructions.", quest });
   } catch (error) {
@@ -211,3 +209,4 @@ router.post('/:id/resolve', async (req: Request, res: Response) => {
 
 
 export default router;
+
