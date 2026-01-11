@@ -71,7 +71,7 @@ export function ActiveQuestBar({
               {isExpanded ? <ChevronDown className="w-4 h-4 shrink-0" /> : <ChevronUp className="w-4 h-4 shrink-0" />}
             </h3>
             
-            {/* 👇 UPDATED: Added Deadline with responsive wrapping */}
+            {/* Deadline with responsive wrapping */}
             <div className="text-xs text-[var(--campus-text-secondary)] flex flex-wrap items-center gap-x-3 gap-y-1 mt-0.5">
               <span>Reward: <span className="text-[#00F5D4] font-bold">₹{quest.reward}</span></span>
               
