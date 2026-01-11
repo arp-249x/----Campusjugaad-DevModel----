@@ -9,7 +9,7 @@ interface ToastNotificationProps {
 }
 
 export function ToastNotification({ isVisible, title, location, onClose }: ToastNotificationProps) {
-  // 👇 FIX 2: Add Auto-Dismiss Timer
+  // Auto-Dismiss Timer
   useEffect(() => {
     if (isVisible) {
       const timer = setTimeout(() => {
