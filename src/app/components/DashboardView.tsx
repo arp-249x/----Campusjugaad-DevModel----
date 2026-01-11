@@ -297,7 +297,6 @@ export function DashboardView({
   );
 }
 
-// ... BidList and StatCard functions remain unchanged below ...
 function BidList({ bids, onAccept }: any) {
     const [sortBy, setSortBy] = useState<'time' | 'rating' | 'lowest' | 'highest'>('time');
 
