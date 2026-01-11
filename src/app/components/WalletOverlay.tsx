@@ -86,7 +86,7 @@ export function WalletOverlay({
         <div className="p-6 space-y-6">
           <div className="bg-gradient-to-br from-[#2D7FF9] to-[#9D4EDD] rounded-2xl p-6 text-white transition-all">
             <p className="text-sm opacity-90 mb-2">Current Balance</p>
-            {/* 👇 FIXED: Force 2 decimal places in display */}
+            {/* Force 2 decimal places in display */}
             <p className="text-4xl mb-6 font-bold">₹{balance.toFixed(2)}</p>
             
             {transactionMode === "none" ? (
@@ -116,7 +116,7 @@ export function WalletOverlay({
                  
                  <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70">₹</span>
-                    {/* 👇 FIXED: Input Masking with Regex */}
+                    {/* Input Masking with Regex */}
                     <input 
                       type="text" // Changed to text to control decimals
                       inputMode="decimal" // Keeps numeric keyboard on mobile
@@ -210,7 +210,7 @@ export function WalletOverlay({
                             txn.type === "credit" ? "text-[#00F5D4]" : "text-red-500"
                           }`}
                         >
-                          {/* 👇 FIXED: Force 2 decimal places in history */}
+                          {/* Force 2 decimal places in history */}
                           {txn.type === "credit" ? "+" : "-"}₹{txn.amount.toFixed(2)}
                         </p>
                         <span className={`text-xs ${
