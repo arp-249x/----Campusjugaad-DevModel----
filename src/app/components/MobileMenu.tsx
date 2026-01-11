@@ -59,7 +59,7 @@ export function MobileMenu({ isOpen, onClose, activeTab, onTabChange, user, onLo
           </button>
         ))}
 
-        {/* 👇 UPDATED: Admin Button for Mobile */}
+        {/* Admin Button for Mobile */}
         {user?.isAdmin && (
             <button
                 onClick={() => {
