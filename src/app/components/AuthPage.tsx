@@ -1,9 +1,10 @@
 import { useState, useEffect } from "react";
-import { Eye, EyeOff, ArrowRight, Sparkles, AlertTriangle, Ghost, Mail, CheckCircle2, Loader2 } from "lucide-react";
+import { Eye, EyeOff, ArrowRight, Sparkles, AlertTriangle, Ghost, Mail, CheckCircle2, Loader2, Timer } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
+import { useToast } from "./ToastContext"; // 👈 IMPORT TOAST
 
 interface AuthPageProps {
   onLogin: (user: any) => void;
@@ -12,6 +13,7 @@ interface AuthPageProps {
 
 export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
   const [isRegistering, setIsRegistering] = useState(false);
+  const { showToast } = useToast(); // 👈 USE TOAST HOOK
   
   // Form States
   const [formData, setFormData] = useState({
@@ -28,10 +30,51 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
   const [showOtpModal, setShowOtpModal] = useState(false);
   const [otpInput, setOtpInput] = useState("");
   const [isSendingOtp, setIsSendingOtp] = useState(false);
-  
+
+  // --- SPAM PROTECTION STATES ---
+  const [resendCooldown, setResendCooldown] = useState(0); 
+  const [resendAttempts, setResendAttempts] = useState(0); 
+
   // --- PUN LOGIC ---
   const [currentPun, setCurrentPun] = useState(""); 
   const [fieldPuns, setFieldPuns] = useState<Record<string, string>>({});
+
+  // 1. LOAD SAVED STATE ON MOUNT (Fixes Refresh Vulnerability)
+  useEffect(() => {
+    const savedAttempts = localStorage.getItem("otp_attempts");
+    const savedCooldownEnd = localStorage.getItem("otp_cooldown_end");
+
+    if (savedAttempts) {
+        setResendAttempts(parseInt(savedAttempts));
+    }
+
+    if (savedCooldownEnd) {
+        const endTime = parseInt(savedCooldownEnd);
+        const now = Date.now();
+        if (endTime > now) {
+            const remainingSeconds = Math.ceil((endTime - now) / 1000);
+            setResendCooldown(remainingSeconds);
+        }
+    }
+  }, []);
+
+  // 2. TIMER LOGIC (Ticks down and updates UI)
+  useEffect(() => {
+    let timer: NodeJS.Timeout;
+    if (resendCooldown > 0) {
+      timer = setInterval(() => {
+        setResendCooldown((prev) => {
+            if (prev <= 1) {
+                // Cleanup when timer hits 0
+                localStorage.removeItem("otp_cooldown_end");
+                return 0;
+            }
+            return prev - 1;
+        });
+      }, 1000);
+    }
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   useEffect(() => {
     const punLibrary = {
@@ -68,25 +111,47 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
     }
   };
 
+  // Helper to actually call the API
+  const sendOtpApi = async (email: string) => {
+    setIsSendingOtp(true);
+    try {
+        const res = await fetch('/api/auth/send-otp', {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({ email })
+        });
+        
+        const data = await res.json();
+        
+        if (!res.ok) {
+            setError(data.message || "Failed to send verification code.");
+            return false;
+        } 
+        return true;
+    } catch (err) {
+        setError("Network error. Check internet connection.");
+        return false;
+    } finally {
+        setIsSendingOtp(false);
+    }
+  };
+
   // --- STEP 1: VALIDATE & SEND OTP ---
   const handleInitiateRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     
-    // 1. Check for empty fields
     if (!formData.name || !formData.username || !formData.email || !formData.password || !formData.dob) {
       setError("Please fill in all fields!");
       return;
     }
 
-    // 2. DOMAIN VALIDATION (Gmail, Outlook, Yahoo)
     const allowedDomains = /@(gmail|outlook|yahoo|hotmail|live|icloud)\.com$/i;
     if (!allowedDomains.test(formData.email)) {
         setError("Please use a valid provider (Gmail, Outlook, Yahoo, etc.)");
         return;
     }
 
-    // 3. AGE VALIDATION
     const birthDate = new Date(formData.dob);
     const today = new Date();
     let age = today.getFullYear() - birthDate.getFullYear();
@@ -99,27 +164,52 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
       return;
     }
 
-    // 4. SEND OTP REQUEST
-    setIsSendingOtp(true);
-    try {
-        const res = await fetch('/api/auth/send-otp', {
-            method: 'POST',
-            headers: {'Content-Type': 'application/json'},
-            body: JSON.stringify({ email: formData.email })
-        });
-        
-        const data = await res.json();
-        
-        if (!res.ok) {
-            setError(data.message || "Failed to send verification code.");
-        } else {
-            // Success: Open Dialog
-            setShowOtpModal(true);
-        }
-    } catch (err) {
-        setError("Network error. Check internet connection.");
-    } finally {
-        setIsSendingOtp(false);
+    // Smart Send: Don't resend if timer is running, just show modal
+    if (resendCooldown > 0) {
+        setShowOtpModal(true);
+        return;
+    }
+
+    // If max attempts reached, block immediately
+    if (resendAttempts >= 3) {
+        setError("Max OTP attempts reached. Please try again later.");
+        return;
+    }
+
+    const success = await sendOtpApi(formData.email);
+    if (success) {
+        setShowOtpModal(true);
+        startCooldown();
+        incrementAttempts();
+    }
+  };
+
+  // --- PERSISTENCE HELPERS ---
+  const startCooldown = () => {
+      const seconds = 30;
+      setResendCooldown(seconds);
+      // Save the FUTURE timestamp when cooldown ends
+      const endTime = Date.now() + (seconds * 1000);
+      localStorage.setItem("otp_cooldown_end", endTime.toString());
+  };
+
+  const incrementAttempts = () => {
+      const newAttempts = resendAttempts + 1;
+      setResendAttempts(newAttempts);
+      localStorage.setItem("otp_attempts", newAttempts.toString());
+  };
+
+  // --- RESEND HANDLER ---
+  const handleResendOtp = async () => {
+    if (resendAttempts >= 3) return; 
+    if (resendCooldown > 0) return; 
+
+    const success = await sendOtpApi(formData.email);
+    if (success) {
+        startCooldown();
+        incrementAttempts();
+        // 👇 NOTIFICATION ADDED
+        showToast("success", "OTP Resent", `New code sent to ${formData.email}`);
     }
   };
 
@@ -134,7 +224,6 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
       const response = await fetch('/api/auth/register', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        // Send form data AND the OTP
         body: JSON.stringify({ ...formData, otp: otpInput }),
       });
 
@@ -145,7 +234,9 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
         return;
       }
 
-      // Success
+      // Success - Clear restrictions
+      localStorage.removeItem("otp_attempts");
+      localStorage.removeItem("otp_cooldown_end");
       setShowOtpModal(false);
       onLogin(data); 
     } catch (err) {
@@ -153,7 +244,6 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
     }
   };
 
-  // --- LOGIN LOGIC (Unchanged) ---
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
@@ -196,7 +286,6 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
             <Sparkles className="w-6 h-6 text-[#F72585] animate-spin-slow" />
           </div>
 
-          {/* FORM */}
           <form onSubmit={isRegistering ? handleInitiateRegister : handleLogin} className="space-y-4">
             
             <div className="h-6 text-center text-sm font-medium text-[#2D7FF9] transition-all duration-300">
@@ -313,7 +402,9 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
       </div>
 
       {/* --- OTP DIALOG --- */}
-      <Dialog open={showOtpModal} onOpenChange={setShowOtpModal}>
+      <Dialog open={showOtpModal} onOpenChange={(open) => {
+          if (!isSendingOtp) setShowOtpModal(open);
+      }}>
         <DialogContent className="bg-[var(--campus-card-bg)] border-[var(--campus-border)] text-[var(--campus-text-primary)] sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="flex flex-col items-center gap-2 text-center">
@@ -337,15 +428,35 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
                 className="text-center text-3xl tracking-[0.5em] h-16 w-64 font-mono uppercase border-[var(--campus-border)] focus:ring-[#2D7FF9]"
                 value={otpInput}
                 onChange={(e) => {
-                    // Allow only numbers
                     if (/^\d*$/.test(e.target.value)) {
                         setOtpInput(e.target.value);
                     }
                 }}
               />
             </div>
-            <p className="text-xs text-[var(--campus-text-secondary)]">
-                Didn't receive it? <button className="text-[#2D7FF9] hover:underline" onClick={handleInitiateRegister}>Resend</button>
+
+            {/* Spam Proof Logic */}
+            <p className="text-xs text-[var(--campus-text-secondary)] h-6 flex items-center justify-center gap-2">
+                {resendAttempts >= 3 ? (
+                    <span className="text-red-500 flex items-center gap-1">
+                        <AlertTriangle className="w-3 h-3" /> Max attempts reached. Try again later.
+                    </span>
+                ) : resendCooldown > 0 ? (
+                    <span className="text-[var(--campus-text-secondary)] opacity-50 flex items-center gap-1">
+                        <Timer className="w-3 h-3" /> Resend available in {resendCooldown}s
+                    </span>
+                ) : (
+                    <>
+                        Didn't receive it? 
+                        <button 
+                            className="text-[#2D7FF9] hover:underline font-bold" 
+                            onClick={handleResendOtp}
+                            disabled={isSendingOtp}
+                        >
+                            {isSendingOtp ? "Sending..." : "Resend Code"}
+                        </button>
+                    </>
+                )}
             </p>
           </div>
 
