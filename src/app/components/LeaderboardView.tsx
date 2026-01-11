@@ -6,7 +6,7 @@ interface LeaderboardViewProps {
   currentUser: any;
 }
 
-// Mock Data (In a real app, this would come from the backend)
+// Mock Data (Real data will be implemented as soon as we have much real users)
 const LEADERBOARD_DATA = [
   { id: 1, name: "Arjun K.", xp: 2400, rating: 4.9, quests: 42, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Arjun" },
   { id: 2, name: "Priya S.", xp: 1850, rating: 5.0, quests: 31, avatar: "https://api.dicebear.com/7.x/avataaars/svg?seed=Priya" },
