@@ -21,7 +21,7 @@ const QuestSchema = new mongoose.Schema({
     status: { type: String, enum: ['pending', 'resolved'], default: 'pending' },
     adminComment: { type: String },
     createdAt: { type: Date },
-    // 👇 NEW FIELD: To track if money needs to be clawed back
+    // To track if money needs to be clawed back
     previousStatus: { type: String } 
   },
   
@@ -32,5 +32,6 @@ const QuestSchema = new mongoose.Schema({
     timestamp: { type: Date, default: Date.now }
   }]
 }, { timestamps: true });
+
 
 export const Quest = mongoose.model('Quest', QuestSchema);
