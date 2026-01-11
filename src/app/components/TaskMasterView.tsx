@@ -244,8 +244,18 @@ export function TaskMasterView({ addQuest, balance }: TaskMasterViewProps) {
                       placeholder="Enter amount"
                       value={formData.incentive}
                       onChange={(e) => {
-                        setFormData({ ...formData, incentive: e.target.value });
-                        if (errors.incentive) setErrors({ ...errors, incentive: undefined });
+                        const val = e.target.value;
+                        // Only allow whole numbers (regex checks for digits only)
+                        if (val === "" || /^\d+$/.test(val)) {
+                            setFormData({ ...formData, incentive: val });
+                            if (errors.incentive) setErrors({ ...errors, incentive: undefined });
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Prevent decimals, negatives, and 'e' notation
+                        if (["e", "E", "+", "-", "."].includes(e.key)) {
+                          e.preventDefault();
+                        }
                       }}
                       className={`w-full pl-8 pr-4 py-3 bg-[var(--campus-border)] rounded-xl text-[var(--campus-text-primary)] placeholder-[var(--campus-text-secondary)] focus:outline-none focus:ring-2 transition-all ${
                         errors.incentive ? "border-2 border-red-500" : "border border-[var(--campus-border)] focus:ring-[#2D7FF9]/50"

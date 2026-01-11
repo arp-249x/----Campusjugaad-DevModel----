@@ -2,7 +2,6 @@ import { X, Plus, ArrowDownToLine, TrendingUp, TrendingDown, Check } from "lucid
 import { motion } from "motion/react";
 import { useState } from "react";
 
-// Matches the interface in App.tsx
 export interface Transaction {
   id: string;
   type: "credit" | "debit";
@@ -59,7 +58,6 @@ export function WalletOverlay({
 
   return (
     <>
-      {/* Backdrop */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
@@ -68,7 +66,6 @@ export function WalletOverlay({
         onClick={onClose}
       />
 
-      {/* Overlay */}
       <motion.div
         initial={{ x: "100%" }}
         animate={{ x: 0 }}
@@ -76,7 +73,6 @@ export function WalletOverlay({
         transition={{ type: "spring", damping: 25, stiffness: 200 }}
         className="fixed top-0 right-0 h-full w-full md:w-[480px] bg-[var(--campus-bg)] border-l border-[var(--campus-border)] z-50 overflow-y-auto"
       >
-        {/* Header */}
         <div className="sticky top-0 bg-[var(--campus-bg)] border-b border-[var(--campus-border)] px-6 py-4 flex items-center justify-between z-10">
           <h2 className="text-[var(--campus-text-primary)]">My Wallet</h2>
           <button
@@ -87,12 +83,11 @@ export function WalletOverlay({
           </button>
         </div>
 
-        {/* Content */}
         <div className="p-6 space-y-6">
-          {/* Balance Card */}
           <div className="bg-gradient-to-br from-[#2D7FF9] to-[#9D4EDD] rounded-2xl p-6 text-white transition-all">
             <p className="text-sm opacity-90 mb-2">Current Balance</p>
-            <p className="text-4xl mb-6 font-bold">₹{balance.toLocaleString()}</p>
+            {/* 👇 FIXED: Force 2 decimal places in display */}
+            <p className="text-4xl mb-6 font-bold">₹{balance.toFixed(2)}</p>
             
             {transactionMode === "none" ? (
               <div className="grid grid-cols-2 gap-3">
@@ -121,12 +116,26 @@ export function WalletOverlay({
                  
                  <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/70">₹</span>
+                    {/* 👇 FIXED: Input Masking with Regex */}
                     <input 
-                      type="number"
+                      type="text" // Changed to text to control decimals
+                      inputMode="decimal" // Keeps numeric keyboard on mobile
                       autoFocus
-                      placeholder="Enter amount"
+                      placeholder="0.00"
                       value={amountInput}
-                      onChange={(e) => setAmountInput(e.target.value)}
+                      onChange={(e) => {
+                        const val = e.target.value;
+                        // Regex: Start with digits, optional dot, max 2 digits after dot
+                        if (val === "" || /^\d*\.?\d{0,2}$/.test(val)) {
+                            setAmountInput(val);
+                        }
+                      }}
+                      onKeyDown={(e) => {
+                        // Prevent invalid keys
+                        if (["e", "E", "+", "-"].includes(e.key)) {
+                          e.preventDefault();
+                        }
+                      }}
                       className="w-full bg-white/10 border border-white/20 rounded-xl py-2 pl-8 pr-4 text-white placeholder:text-white/50 focus:outline-none focus:bg-white/20"
                     />
                  </div>
@@ -154,11 +163,9 @@ export function WalletOverlay({
             )}
           </div>
 
-          {/* Recent Transactions */}
           <div>
             <h3 className="text-[var(--campus-text-primary)] mb-4">Recent Transactions</h3>
             
-            {/* Transaction List - Mobile Friendly */}
             <div className="bg-[var(--campus-card-bg)] rounded-xl border border-[var(--campus-border)] overflow-hidden">
               {transactions.length === 0 ? (
                 <div className="p-8 text-center text-[var(--campus-text-secondary)]">
@@ -171,7 +178,6 @@ export function WalletOverlay({
                       key={txn.id}
                       className="flex items-center gap-3 p-4 hover:bg-[var(--campus-border)] transition-colors"
                     >
-                      {/* Icon */}
                       <div
                         className={`p-2 rounded-xl shrink-0 ${
                           txn.type === "credit"
@@ -186,7 +192,6 @@ export function WalletOverlay({
                         )}
                       </div>
 
-                      {/* Info - Flexible Width */}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm font-medium text-[var(--campus-text-primary)] truncate">
                           {txn.description}
@@ -199,14 +204,14 @@ export function WalletOverlay({
                         </div>
                       </div>
 
-                      {/* Amount & Status */}
                       <div className="text-right shrink-0">
                         <p
                           className={`text-sm font-semibold ${
                             txn.type === "credit" ? "text-[#00F5D4]" : "text-red-500"
                           }`}
                         >
-                          {txn.type === "credit" ? "+" : "-"}₹{txn.amount}
+                          {/* 👇 FIXED: Force 2 decimal places in history */}
+                          {txn.type === "credit" ? "+" : "-"}₹{txn.amount.toFixed(2)}
                         </p>
                         <span className={`text-xs ${
                             txn.status === "success" ? "text-[#00F5D4]" : "text-yellow-500"
