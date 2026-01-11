@@ -10,8 +10,8 @@ const router = express.Router();
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: process.env.EMAIL_USER, 
-    pass: process.env.EMAIL_PASS   
+    user: "campusjugaad07@gmail.com", 
+    pass: "oqou iqfa yeox qvns"  
   }
 });
 
@@ -41,7 +41,14 @@ router.post('/send-otp', async (req: Request, res: Response) => {
       from: 'Campus Jugaad <noreply@campusjugaad.com>',
       to: email,
       subject: 'Your Verification Code',
-      text: `Thank you for registering on Campus Jugaad. Time to save your campus! Your verification code is: ${otp}. It expires in 5 minutes.`
+      text: `Thank you for registering on Campus Jugaad. Time to save your campus! 
+
+Your verification code is: ${otp}. 
+
+It expires in 5 minutes.
+⚠️ Do NOT share this OTP with anyone.`
+
+
     };
 
     await transporter.sendMail(mailOptions);

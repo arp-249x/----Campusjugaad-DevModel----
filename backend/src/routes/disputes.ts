@@ -2,10 +2,22 @@ import express, { Request, Response } from 'express';
 import { Quest } from '../models/Quest';
 import { User } from '../models/User';
 import { Transaction } from '../models/Transaction';
+import nodemailer from 'nodemailer'; // 👈 Import Nodemailer
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 const router = express.Router();
 
-// 👇 HELPER: Fixes floating point errors (e.g. 20.25 - 20.24 = 0.01)
+// --- EMAIL CONFIGURATION ---
+const transporter = nodemailer.createTransport({
+  service: 'gmail',
+  auth: {
+    user: "campusjugaad07@gmail.com", 
+    pass: "oqou iqfa yeox qvns"  
+  }
+});
+
 const roundToTwo = (num: number) => Math.round((num + Number.EPSILON) * 100) / 100;
 
 // 1. RAISE A DISPUTE
@@ -13,11 +25,11 @@ router.post('/:id/raise', async (req: Request, res: Response) => {
   try {
     const { username, reason } = req.body;
     
-    // 1. Get current status BEFORE updating
+    // 1. Get current status
     const questToCheck = await Quest.findById(req.params.id);
     if (!questToCheck) return res.status(404).json({ message: "Quest not found" });
 
-    // Lock the quest
+    // 2. Lock the quest
     const quest = await Quest.findOneAndUpdate(
       { _id: req.params.id, status: { $in: ['active', 'completed'] } }, 
       { 
@@ -28,7 +40,7 @@ router.post('/:id/raise', async (req: Request, res: Response) => {
             reason: reason,
             status: 'pending',
             createdAt: new Date(),
-            previousStatus: questToCheck.status // Save status to handle refunds correctly
+            previousStatus: questToCheck.status
           }
         } 
       },
@@ -37,8 +49,72 @@ router.post('/:id/raise', async (req: Request, res: Response) => {
 
     if (!quest) return res.status(400).json({ message: "Cannot dispute this quest." });
 
-    res.json({ message: "Dispute raised.", quest });
+    // --- 👇 PRIVACY-FOCUSED EMAIL BRIDGE ---
+    const taskMaster = await User.findOne({ username: quest.postedBy });
+    const hero = await User.findOne({ username: quest.assignedTo });
+
+    if (taskMaster && hero && process.env.EMAIL_USER) {
+        const adminEmail = process.env.EMAIL_USER;
+        const disputeId = quest._id.toString();
+        const subjectLine = `[DISPUTE: ${disputeId}] Action Required: ${quest.title}`;
+        
+        // This ID forces email clients to group these messages
+        const threadId = `<dispute-${disputeId}@campusjugaad.com>`;
+
+        const commonBody = `
+Dear User,
+
+A dispute has been raised regarding the quest: "${quest.title}".
+
+Status: 🔴 DISPUTED
+Reported By: @${username}
+Reason: "${reason}"
+
+--- ACTION REQUIRED ---
+Please REPLY directly to this email with your side of the story.
+- Attach screenshots/proofs if available.
+- Be concise and honest.
+
+Our Admin team will review the evidence and issue a resolution.
+
+- Campus Jugaad Support
+        `;
+
+        // Email to Task Master (Hero is HIDDEN)
+        await transporter.sendMail({
+            from: 'Campus Jugaad Support <noreply@campusjugaad.com>',
+            to: taskMaster.email,
+            bcc: adminEmail, // Admin gets a silent copy
+            replyTo: adminEmail, // Replies go to Admin
+            subject: subjectLine,
+            text: commonBody,
+            headers: {
+                'Message-ID': `<tm-${disputeId}@campusjugaad.com>`,
+                'References': threadId,
+                'In-Reply-To': threadId
+            }
+        });
+
+        // Email to Hero (Task Master is HIDDEN)
+        await transporter.sendMail({
+            from: 'Campus Jugaad Support <noreply@campusjugaad.com>',
+            to: hero.email,
+            bcc: adminEmail, // Admin gets a silent copy
+            replyTo: adminEmail, // Replies go to Admin
+            subject: subjectLine,
+            text: commonBody,
+            headers: {
+                'Message-ID': `<hero-${disputeId}@campusjugaad.com>`,
+                'References': threadId,
+                'In-Reply-To': threadId
+            }
+        });
+    }
+    // --- 👆 END EMAIL LOGIC ---
+
+    res.json({ message: "Dispute raised. Check your email for instructions.", quest });
   } catch (error) {
+    console.error(error);
     res.status(500).json({ message: "Server error" });
   }
 });
@@ -73,19 +149,13 @@ router.post('/:id/resolve', async (req: Request, res: Response) => {
     // --- RESOLUTION LOGIC ---
 
     if (resolution === 'refund_poster') {
-      // CASE A: Refund Task Master
       if (wasAlreadyPaid) {
-          if (hero.balance < quest.reward) {
-              // Note: In production, handle negative balance logic here
-          }
-          // 👇 APPLY ROUNDING
           hero.balance = roundToTwo(hero.balance - quest.reward);
           hero.xp -= quest.xp; 
           await hero.save();
           await Transaction.create({ userId: hero.username, type: 'debit', amount: quest.reward, description: `Dispute Clawback: ${quest.title}`, status: 'success' });
       }
 
-      // 👇 APPLY ROUNDING
       poster.balance = roundToTwo(poster.balance + quest.reward);
       await poster.save();
       await Transaction.create({ userId: poster.username, type: 'credit', amount: quest.reward, description: `Dispute Refund: ${quest.title}`, status: 'success' });
@@ -94,31 +164,24 @@ router.post('/:id/resolve', async (req: Request, res: Response) => {
       quest.dispute!.adminComment = "Resolved: Refunded to Task Master";
 
     } else if (resolution === 'pay_hero') {
-      // CASE B: Pay Hero
       if (!wasAlreadyPaid) {
-          // 👇 APPLY ROUNDING
           hero.balance = roundToTwo(hero.balance + quest.reward);
           hero.xp += quest.xp;
           await hero.save();
           await Transaction.create({ userId: hero.username, type: 'credit', amount: quest.reward, description: `Dispute Settlement: ${quest.title}`, status: 'success' });
       }
 
-      // Mark as 'resolved' (Green), NOT 'completed' (Blue)
       quest.status = 'resolved'; 
       quest.dispute!.adminComment = "Resolved: Funds released to Hero";
 
     } else if (resolution === 'split') {
-      // CASE C: 50/50 Split
-      // 👇 APPLY ROUNDING to the split amount itself
       const splitAmount = roundToTwo(quest.reward / 2);
 
       if (wasAlreadyPaid) {
-          
           hero.balance = roundToTwo(hero.balance - splitAmount);
           await hero.save();
           await Transaction.create({ userId: hero.username, type: 'debit', amount: splitAmount, description: `Dispute Split (Return): ${quest.title}`, status: 'success' });
 
-          // ROUNDING
           poster.balance = roundToTwo(poster.balance + splitAmount);
           await poster.save();
           await Transaction.create({ userId: poster.username, type: 'credit', amount: splitAmount, description: `Dispute Split (Refund): ${quest.title}`, status: 'success' });
