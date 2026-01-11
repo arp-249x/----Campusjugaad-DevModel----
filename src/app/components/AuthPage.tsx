@@ -4,7 +4,7 @@ import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";
-import { useToast } from "./ToastContext"; // 👈 IMPORT TOAST
+import { useToast } from "./ToastContext";
 
 interface AuthPageProps {
   onLogin: (user: any) => void;
@@ -13,7 +13,7 @@ interface AuthPageProps {
 
 export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
   const [isRegistering, setIsRegistering] = useState(false);
-  const { showToast } = useToast(); // 👈 USE TOAST HOOK
+  const { showToast } = useToast();
   
   // Form States
   const [formData, setFormData] = useState({
@@ -208,7 +208,6 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
     if (success) {
         startCooldown();
         incrementAttempts();
-        // 👇 NOTIFICATION ADDED
         showToast("success", "OTP Resent", `New code sent to ${formData.email}`);
     }
   };
@@ -474,4 +473,5 @@ export function AuthPage({ onLogin, onGuest }: AuthPageProps) {
 
     </div>
   );
+
 }
