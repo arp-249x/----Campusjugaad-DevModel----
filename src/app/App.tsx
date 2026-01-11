@@ -231,7 +231,7 @@ function AppContent() {
       
       // Update Active Quest & History
       if (currentUser) {
-         // 👇 CORRECTED LOGIC: 'ongoingQuest' is STRICTLY active only.
+         
          // Disputed quests should NOT block this slot.
          const ongoingQuest = data.find((q: Quest) => 
             (q.assignedTo === currentUser.username || q.postedBy === currentUser.username) && 
@@ -245,7 +245,7 @@ function AppContent() {
             setActiveQuest(null);
          }
          
-         // 👇 CORRECTED LOGIC: History includes completed, expired, disputed, and resolved.
+         // History includes completed, expired, disputed, and resolved.
          const myHistory = data.filter((q: Quest) => 
             (q.postedBy === currentUser.username || q.assignedTo === currentUser.username) && 
             ['completed', 'expired', 'disputed', 'resolved'].includes(q.status)
@@ -652,7 +652,6 @@ function AppContent() {
             <DashboardView 
               currentUser={currentUser} 
               hasUnread={hasUnread} 
-              // 👇 UPDATED: activeQuest is STRICTLY active only. Disputed/Resolved go to history list.
               activeQuest={
                 activeQuest || 
                 quests.find(q => 
