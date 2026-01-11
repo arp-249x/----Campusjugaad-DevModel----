@@ -10,8 +10,8 @@ const router = express.Router();
 const transporter = nodemailer.createTransport({
   service: 'gmail',
   auth: {
-    user: "campusjugaad07@gmail.com", 
-    pass: "oqou iqfa yeox qvns"  
+    user: process.env.EMAIL_USER, 
+    pass: process.env.EMAIL_PASS  
   }
 });
 
@@ -127,5 +127,6 @@ router.get('/me', async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server Error" });
   }
 });
+
 
 export default router;
