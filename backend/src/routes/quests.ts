@@ -13,7 +13,7 @@ router.get('/', async (req: Request, res: Response) => {
     const currentUsername = req.query.username as string;
     const quests = await Quest.find({ status: { $ne: 'expired' } }).sort({ createdAt: -1 });
     
-    // SANITIZE: Only show OTP if the user is the POSTER
+    //Only show OTP if the user is the TaskMaster
     const sanitizedQuests = quests.map(q => {
       const quest = q.toObject();
       if (quest.postedBy !== currentUsername) {
@@ -33,7 +33,7 @@ router.post('/', async (req: Request, res: Response) => {
   try {
     const { title, description, reward, xp, urgency, location, deadline, deadlineIso, postedBy } = req.body;
 
-    // SCALABILITY FIX: Check if this user posted the exact same title within the last 10 seconds
+    // Check if this user posted the exact same title within the last 10 seconds
     const tenSecondsAgo = new Date(Date.now() - 10000);
     const existingDuplicate = await Quest.findOne({
         postedBy,
@@ -80,12 +80,12 @@ router.post('/', async (req: Request, res: Response) => {
   }
 });
 
-// 3. ACCEPT QUEST ROUTE (Race Condition Fixed)
+// 3. ACCEPT QUEST ROUTE (Race Condition)
 router.put('/:id/accept', async (req: Request, res: Response) => {
   try {
     const { heroUsername } = req.body;
 
-    // SCALABILITY FIX: Atomic Update
+    //Atomic Update
     // We look for the ID *AND* status='open' in one shot.
     const quest = await Quest.findOneAndUpdate(
         { _id: req.params.id, status: 'open' }, 
@@ -99,7 +99,7 @@ router.put('/:id/accept', async (req: Request, res: Response) => {
     );
 
     if (!quest) {
-        // This handles the race condition gracefully
+        // handles the race condition 
         return res.status(400).json({ message: "Too late! Quest already taken or unavailable." });
     }
 
@@ -122,7 +122,7 @@ router.post('/:id/complete', async (req: Request, res: Response) => {
   try {
     const { otp, heroUsername } = req.body;
 
-    // 1. Verify OTP first (Read only)
+    // 1. Verify OTP first
     const checkQuest = await Quest.findById(req.params.id);
     if (!checkQuest) return res.status(404).json({ message: "Quest not found" });
     if (checkQuest.otp !== otp) return res.status(400).json({ message: "Invalid OTP" });
@@ -165,7 +165,7 @@ router.post('/:id/complete', async (req: Request, res: Response) => {
   }
 });
 
-// 5. RESIGN QUEST (Atomic)
+// 5. RESIGN QUEST
 router.put('/:id/resign', async (req: Request, res: Response) => {
   try {
     const { heroUsername } = req.body;
@@ -184,7 +184,7 @@ router.put('/:id/resign', async (req: Request, res: Response) => {
   }
 });
 
-// 6. CANCEL QUEST (Atomic Check)
+// 6. CANCEL QUEST
 router.delete('/:id', async (req: Request, res: Response) => {
   try {
     const { username } = req.body;
@@ -221,7 +221,7 @@ router.delete('/:id', async (req: Request, res: Response) => {
   }
 });
 
-// 7. RATE HERO (Atomic)
+// 7. RATE HERO
 router.post('/:id/rate', async (req: Request, res: Response) => {
   try {
     const { rating } = req.body;
@@ -271,7 +271,7 @@ router.get('/:id/messages', async (req: Request, res: Response) => {
   }
 });
 
-// 10. PLACE BID (Atomic Push)
+// 10. PLACE BID
 router.post('/:id/bid', async (req: Request, res: Response) => {
   try {
     const { heroUsername, amount } = req.body;
@@ -284,7 +284,7 @@ router.post('/:id/bid', async (req: Request, res: Response) => {
                 bids: { 
                     heroUsername, 
                     amount, 
-                    rating: 5.0, // In production, fetch real rating here
+                    rating: 5.0,
                     timestamp: new Date() 
                 } 
             } 
@@ -300,17 +300,16 @@ router.post('/:id/bid', async (req: Request, res: Response) => {
   }
 });
 
-// 11. ACCEPT BID (Safe Lock & Rollback Logic)
+// 11. ACCEPT BID
 router.put('/:id/accept-bid', async (req: Request, res: Response) => {
   try {
     const { taskMaster, heroUsername, bidAmount } = req.body;
     
-    // 1. GET USER (Read-only check)
+    // 1. GET USER
     const user = await User.findOne({ username: taskMaster });
     if (!user) return res.status(404).json({ message: "User not found" });
 
     // 2. ATOMIC LOCK: Try to turn the quest 'active' & assign hero.
-    // CRITICAL: We do NOT update 'reward' yet. We need the original value.
     const quest = await Quest.findOneAndUpdate(
         { _id: req.params.id, status: 'open', postedBy: taskMaster },
         { 
@@ -382,5 +381,6 @@ router.put('/:id/accept-bid', async (req: Request, res: Response) => {
     res.status(500).json({ message: "Server error" });
   }
 });
+
 
 export default router;
