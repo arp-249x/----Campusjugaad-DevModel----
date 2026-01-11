@@ -102,7 +102,7 @@ router.post('/register', async (req: Request, res: Response) => {
   }
 });
 
-// 3. LOGIN ROUTE (Unchanged)
+// 3. LOGIN ROUTE
 router.post('/login', async (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
@@ -115,7 +115,7 @@ router.post('/login', async (req: Request, res: Response) => {
   }
 });
 
-// 4. ME ROUTE (Unchanged)
+// 4. ME ROUTE
 router.get('/me', async (req: Request, res: Response) => {
   try {
     const { username } = req.query; 
@@ -130,3 +130,4 @@ router.get('/me', async (req: Request, res: Response) => {
 
 
 export default router;
+
