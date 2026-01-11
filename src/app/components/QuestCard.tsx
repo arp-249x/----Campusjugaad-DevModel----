@@ -1,8 +1,6 @@
 import { Clock, MapPin, Coins, Zap, ChevronDown, ChevronUp, Gavel, CheckCircle2 } from "lucide-react";
 import { useState } from "react";
 
-// ... (Keep Interfaces same)
-
 export function QuestCard({
   title, description, reward, xp, urgency, deadline, location, 
   highlighted = false, onAccept, isAccepted = false, isMyQuest = false, 
@@ -24,7 +22,7 @@ export function QuestCard({
     setIsBidding(false);
   };
 
-  // 👇 UPDATED: Added Confirmation Dialog
+  //Confirmation Dialog
   const handleDirectAccept = (e: any) => {
     e.stopPropagation();
     if (confirm(`Are you sure you want to accept "${title}" for ₹${reward}?`)) {
