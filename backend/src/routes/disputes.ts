@@ -113,17 +113,16 @@ router.post('/:id/resolve', async (req: Request, res: Response) => {
       const splitAmount = roundToTwo(quest.reward / 2);
 
       if (wasAlreadyPaid) {
-          // 👇 APPLY ROUNDING
+          
           hero.balance = roundToTwo(hero.balance - splitAmount);
           await hero.save();
           await Transaction.create({ userId: hero.username, type: 'debit', amount: splitAmount, description: `Dispute Split (Return): ${quest.title}`, status: 'success' });
 
-          // 👇 APPLY ROUNDING
+          // ROUNDING
           poster.balance = roundToTwo(poster.balance + splitAmount);
           await poster.save();
           await Transaction.create({ userId: poster.username, type: 'credit', amount: splitAmount, description: `Dispute Split (Refund): ${quest.title}`, status: 'success' });
       } else {
-          // 👇 APPLY ROUNDING
           poster.balance = roundToTwo(poster.balance + splitAmount);
           hero.balance = roundToTwo(hero.balance + splitAmount);
           await poster.save();
